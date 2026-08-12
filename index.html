@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free AI Background Remover</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://jsdelivr.net"></script>
+    <!-- IMPORTS THE IMGLY BACKGROUND REMOVAL SDK -->
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-6">
+
+    <div class="max-w-2xl w-full text-center bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
+        <h1 class="text-3xl font-bold mb-2">AI Background Remover</h1>
+        <p class="text-gray-400 mb-6 text-sm">100% Free, Private, and Client-Side Processing</p>
+
+        <!-- Upload Container -->
+        <div class="border-2 border-dashed border-gray-600 rounded-xl p-8 mb-6 hover:border-blue-500 transition-colors cursor-pointer relative" id="drop-zone">
+            <input type="file" id="file-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+            <div id="upload-prompt">
+                <p class="text-lg font-medium">Click or drag & drop your image here</p>
+                <p class="text-xs text-gray-500 mt-1">Supports PNG, JPG, WEBP</p>
+            </div>
+            <!-- Loading Status Indicator -->
+            <div id="loading-status" class="hidden text-blue-400 font-medium animate-pulse">
+                Processing image via local AI... Please wait...
+            </div>
+        </div>
+
+        <!-- Image Display Preview Box -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden" id="preview-container">
+            <div>
+                <p class="text-xs text-gray-400 mb-1">Original</p>
+                <img id="original-preview" class="w-full h-auto rounded-lg max-h-64 object-contain bg-gray-900" src="" alt="Original">
+            </div>
+            <div>
+                <p class="text-xs text-gray-400 mb-1">Result</p>
+                <img id="result-preview" class="w-full h-auto rounded-lg max-h-64 object-contain bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNlZWUiLz48cmVjdCB4PSI0IiB5PSI0IiB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZWVlIi8+PC9zdmc+')] bg-repeat" src="" alt="Result">
+            </div>
+        </div>
+
+        <!-- Download Action Button -->
+        <button id="download-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all hidden">
+            Download Transparent PNG
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
