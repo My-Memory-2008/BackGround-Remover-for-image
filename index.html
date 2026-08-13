@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClearCut.AI — Free AI Background Remover</title>
-    <!-- Link to our clean, uncorrupted style sheet -->
+    <!-- Link to the clean style layout file -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,15 +32,16 @@
                 <div id="error-badge">Runtime Error</div>
             </div>
             <div id="error-desc" class="error-desc">An internal code execution processing error occurred.</div>
-            <div id="error-trace" class="error-trace">No technical stack diagnostic tracking frames parsed.</div>
+            <div id="error-trace" class="error-trace">No technical logs compiled.</div>
         </div>
 
         <!-- Action Toolkit Inputs Box -->
         <div class="workspace-card">
             <div id="drop-zone" class="drop-zone">
-                <input type="file" id="file-input" accept="image/*" class="hidden">
+                <!-- Explicit hidden file field for programmatic click calls -->
+                <input type="file" id="file-input" accept="image/*" style="display: none !important;">
                 <p class="drop-text-primary">Drag & drop your file here, or <span>browse storage</span></p>
-                <p class="drop-text-secondary">Supports all mainstream image file formats</p>
+                <p class="drop-text-secondary">Supports PNG, JPG, and WEBP formats</p>
             </div>
 
             <div class="inputs-row">
@@ -89,6 +90,7 @@
         © 2026 ClearCut.AI • Free WebAssembly Serverless Processing Framework
     </footer>
 
+    <!-- Executed as a Module script to correctly bundle ESM modules -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
