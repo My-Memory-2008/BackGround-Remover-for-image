@@ -21,38 +21,75 @@ const errorTitle = document.getElementById('error-title');
 const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
-const errorClose = document.getElementById('error-close');
 
-// Global Core Script Error Interceptor (Catches syntax slipups, script loading cuts)
+// Clear error banner on click
+const errorClose = document.getElementById('error-close');
+if (errorClose) {
+    errorClose.addEventListener('click', () => errorCard.classList.add('hidden'));
+}
+
+// Global Core Script Error Interceptor
 window.onerror = function (message, source, lineno, colno, error) {
     displayDiagnosticError(
         "Script Runtime Fault", 
         "Application JavaScript Error", 
         "An unexpected script issue occurred on the interface thread layer.", 
-        `Message: ${message}\nSource: ${source}\nLine: ${lineno}:${colno}\nStack: ${error?.stack || 'N/A'}`
+        `Message: ${message}\nSource: ${source}\nLine: ${lineno}:${colno}`
     );
     toggleLoadingState(false);
     return false;
 };
 
-// Clear error banner on click
-errorClose.addEventListener('click', () => errorCard.classList.add('hidden'));
-
-// Main Target Upload Event Hooks
+// Click dropzone to open native file browser dialog
 dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (e) => handleSelectedFileGroup(e.target.files));
+
+// Handle standard manual button clicks
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+        errorCard.classList.add('hidden');
+        evaluateIncomingBlob(e.target.files[0], e.target.files[0].name);
+    }
+});
+
+// Drag and Drop Layout Event Interceptors
+['dragenter', 'dragover'].forEach(interactionTag => {
+    dropZone.addEventListener(interactionTag, (eventState) => {
+        eventState.preventDefault();
+        dropZone.style.borderColor = "var(--accent-purple)";
+        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.6)";
+    }, false);
+});
+
+['dragleave', 'drop'].forEach(interactionTag => {
+    dropZone.addEventListener(interactionTag, (eventState) => {
+        eventState.preventDefault();
+        dropZone.style.borderColor = "var(--border-color)";
+        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.3)";
+    }, false);
+});
+
+dropZone.addEventListener('drop', (dropEvent) => {
+    dropEvent.preventDefault();
+    errorCard.classList.add('hidden');
+    
+    const transferPayload = dropEvent.dataTransfer;
+    if (transferPayload && transferPayload.files.length > 0) {
+        const droppedFile = transferPayload.files[0];
+        evaluateIncomingBlob(droppedFile, droppedFile.name);
+    }
+});
 
 // Web Address URL Asset Import Engine
 urlBtn.addEventListener('click', async () => {
     const targetUrl = urlInput.value.trim();
     if (!targetUrl) return;
     
-    errorCard.classList.add('hidden'); // Clear past crash cards
+    errorCard.classList.add('hidden'); 
     toggleLoadingState(true, "Fetching remote resource link standard parameters...");
     
     try {
         const response = await fetch(targetUrl);
-        if (!response.ok) throw new Error(`HTTP Error Code status context: ${response.status} - ${response.statusText}`);
+        if (!response.ok) throw new Error(`HTTP Error Code: ${response.status}`);
         const blobStream = await response.blob();
         evaluateIncomingBlob(blobStream, "downloaded-url-resource.png");
     } catch (networkError) {
@@ -60,7 +97,7 @@ urlBtn.addEventListener('click', async () => {
             "CORS or Network Blocked",
             "Network Request Failure",
             "Could not pull the graphic from the external web link. The target domain likely prevents script access due to Cross-Origin Resource Sharing (CORS) isolation laws.",
-            networkError.stack || networkError.message
+            networkError.message
         );
         toggleLoadingState(false);
     }
@@ -80,38 +117,14 @@ window.addEventListener('paste', async (pasteEvent) => {
     }
 });
 
-// Native Layout Drag Overlay Mechanics
-['dragenter', 'dragover'].forEach(interactionTag => {
-    dropZone.addEventListener(interactionTag, (eventState) => {
-        eventState.preventDefault();
-        dropZone.classList.add('border-purple-500', 'bg-slate-950/60');
-    }, false);
-});
-['dragleave', 'drop'].forEach(interactionTag => {
-    dropZone.addEventListener(interactionTag, (eventState) => {
-        eventState.preventDefault();
-        dropZone.classList.remove('border-purple-500', 'bg-slate-950/60');
-    }, false);
-});
-dropZone.addEventListener('drop', (dropEvent) => {
-    const transferPayload = dropEvent.dataTransfer;
-    if (transferPayload.files.length > 0) handleSelectedFileGroup(transferPayload.files);
-});
-
-function handleSelectedFileGroup(fileList) {
-    if (fileList.length === 0) return;
-    errorCard.classList.add('hidden');
-    evaluateIncomingBlob(fileList[0], fileList[0].name);
-}
-
 // Normalized Data Controller: Normalizes raw formats into standard 2D contexts
 async function evaluateIncomingBlob(fileBlob, outputReferenceName) {
-    if (!fileBlob.type.startsWith('image/')) {
+    if (!fileBlob || !fileBlob.type.startsWith('image/')) {
         displayDiagnosticError(
             "Invalid Structural Type",
             "File Verification Fault",
-            `The chosen asset presents an invalid structural MIME standard tag signature: "${fileBlob.type || 'Unknown'}"`,
-            "Validation check blocked. Processing cancelled."
+            "The chosen asset presents an invalid structural MIME standard tag signature.",
+            "Processing cancelled."
         );
         return;
     }
@@ -125,7 +138,7 @@ async function evaluateIncomingBlob(fileBlob, outputReferenceName) {
         transformCanvas.height = visualBitmap.height;
         
         const render2DContext = transformCanvas.getContext('2d');
-        if (!render2DContext) throw new Error("Could not initialize 2D context engine canvas layouts.");
+        if (!render2DContext) throw new Error("Could not initialize 2D context canvas.");
         
         render2DContext.drawImage(visualBitmap, 0, 0);
         imgSpecs.innerText = `${visualBitmap.width} × ${visualBitmap.height}`;
@@ -137,14 +150,14 @@ async function evaluateIncomingBlob(fileBlob, outputReferenceName) {
             previewSection.classList.remove('hidden');
             inputImage.src = sourceUrlReference;
             outputImage.src = "";
-            outputImage.classList.add('opacity-30');
+            outputImage.classList.add('opacity-dim');
             configureDownloadTriggerState(false);
 
             await executeONNXSegmentationAI(pngBlobPayload, outputReferenceName);
         }, 'image/png');
 
     } catch (renderingFault) {
-        console.warn("Hardware rendering context fallback active: ", renderingFault);
+        // Fallback processing attempt if canvas acceleration framework fails
         try {
             const secondarySourceUrl = URL.createObjectURL(fileBlob);
             previewSection.classList.remove('hidden');
@@ -154,15 +167,15 @@ async function evaluateIncomingBlob(fileBlob, outputReferenceName) {
             displayDiagnosticError(
                 "Decompression Crash",
                 "Canvas Context Loss",
-                "The browser failed to cleanly read, step through, or draw this binary image file structure onto the layout view.",
-                `${renderingFault.stack || renderingFault.message}\nFallback log trail: ${fallbackFault.message}`
+                "The browser failed to cleanly read or draw this binary image file structure onto the layout view.",
+                renderingFault.message
             );
             toggleLoadingState(false);
         }
     }
 }
 
-// Interacts with ONNX WASM neural network weights entirely in local storage memory spaces
+// Executes background extraction model operation locally
 async function executeONNXSegmentationAI(binaryTargetBlob, finalNameString) {
     toggleLoadingState(true, "AI executing background segmentation layer (Computing locally)...");
     try {
@@ -175,7 +188,7 @@ async function executeONNXSegmentationAI(binaryTargetBlob, finalNameString) {
 
         const explicitMaskUrl = URL.createObjectURL(processedBlobOutput);
         outputImage.src = explicitMaskUrl;
-        outputImage.classList.remove('opacity-30');
+        outputImage.classList.remove('opacity-dim');
         
         configureDownloadTriggerState(true, () => {
             const anchorElement = document.createElement('a');
@@ -190,8 +203,8 @@ async function executeONNXSegmentationAI(binaryTargetBlob, finalNameString) {
         displayDiagnosticError(
             "Neural Engine Failure",
             "ONNX Pipeline Break",
-            "The localized background extraction model crashed. This typically happens if the browser tabs run low on accessible device RAM or if WebAssembly parallel textures are blocked.",
-            aiModelProcessingFault.stack || aiModelProcessingFault.message || JSON.stringify(aiModelProcessingFault)
+            "The localized background extraction model crashed. This typically happens if the browser tab runs low on memory space.",
+            aiModelProcessingFault.message || "WASM Memory limits reached."
         );
         toggleLoadingState(false);
     }
@@ -201,7 +214,7 @@ function displayDiagnosticError(badgeString, headlineString, paragraphString, st
     errorBadge.innerText = badgeString;
     errorTitle.innerText = headlineString;
     errorDesc.innerText = paragraphString;
-    errorTrace.innerText = stackTraceData || "No technical stack frames provided by the engine thread.";
+    errorTrace.innerText = stackTraceData || "No technical logs provided.";
     errorCard.classList.remove('hidden');
     errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -217,10 +230,10 @@ function toggleLoadingState(shouldDisplay, dynamicText = "") {
 
 function configureDownloadTriggerState(isAvailable, executionCallback = null) {
     if (isAvailable) {
-        downloadBtn.classList.remove('opacity-40', 'pointer-events-none');
+        downloadBtn.classList.remove('disabled');
         downloadBtn.onclick = executionCallback;
     } else {
-        downloadBtn.classList.add('opacity-40', 'pointer-events-none');
+        downloadBtn.classList.add('disabled');
         downloadBtn.onclick = null;
     }
 }
