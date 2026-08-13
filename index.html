@@ -3,49 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free AI Background Remover</title>
-    <!-- Tailwind CSS for modern styling -->
+    <title>AI Background Remover Pro</title>
+    <!-- Tailwind CSS v4 Engine -->
     <script src="https://jsdelivr.net"></script>
-    <!-- IMPORTS THE IMGLY BACKGROUND REMOVAL SDK -->
-    <script src="https://jsdelivr.net"></script>
+    <link rel="stylesheet" href="https://cloudflare.com">
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-6">
+<body class="bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-purple-950 to-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
 
-    <div class="max-w-2xl w-full text-center bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
-        <h1 class="text-3xl font-bold mb-2">AI Background Remover</h1>
-        <p class="text-gray-400 mb-6 text-sm">100% Free, Private, and Client-Side Processing</p>
-
-        <!-- Upload Container -->
-        <div class="border-2 border-dashed border-gray-600 rounded-xl p-8 mb-6 hover:border-blue-500 transition-colors cursor-pointer relative" id="drop-zone">
-            <input type="file" id="file-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
-            <div id="upload-prompt">
-                <p class="text-lg font-medium">Click or drag & drop your image here</p>
-                <p class="text-xs text-gray-500 mt-1">Supports PNG, JPG, WEBP</p>
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800/60 backdrop-blur-md bg-slate-900/40 sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-purple-600 to-pink-500 p-2.5 rounded-xl shadow-lg shadow-purple-500/20">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xl text-white"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">ClearCut<span class="text-purple-400 font-extrabold">.AI</span></span>
             </div>
-            <!-- Loading Status Indicator -->
-            <div id="loading-status" class="hidden text-blue-400 font-medium animate-pulse">
-                Processing image via local AI... Please wait...
+            <div class="flex items-center space-x-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <span class="flex items-center"><span class="h-2 w-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Free & Unlimited</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 flex flex-col items-center justify-center space-y-8">
+        
+        <!-- Hero Copy -->
+        <div class="text-center space-y-3 max-w-2xl">
+            <h1 class="text-4xl md:text-5xl font-black tracking-tight leading-tight">
+                Remove Backgrounds <span class="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Instantly & Locally</span>
+            </h1>
+            <p class="text-slate-400 text-sm md:text-base">
+                No uploads to external servers. Paste clips, links, or drop any image file formats safely inside your own browser window.
+            </p>
+        </div>
+
+        <!-- Universal Input Deck -->
+        <div class="w-full max-w-3xl bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-6">
+            
+            <!-- Drag, Drop & Click Core Box -->
+            <div id="drop-zone" class="relative group border-2 border-dashed border-slate-700 hover:border-purple-500 rounded-xl p-8 md:p-12 text-center transition-all duration-300 cursor-pointer bg-slate-950/40 hover:bg-slate-950/70">
+                <input type="file" id="file-input" accept="image/*" class="hidden">
+                <div class="space-y-4 pointer-events-none">
+                    <div class="mx-auto w-14 h-14 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center group-hover:scale-110 group-hover:border-purple-500/50 transition-all duration-300">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl text-slate-400 group-hover:text-purple-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-base font-medium text-slate-200">Drag & drop your asset here, or <span class="text-purple-400 group-hover:underline">browse files</span></p>
+                        <p class="text-xs text-slate-500 mt-1">Supports raw graphics, web formats, and mobile dimensions</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alternate Inputs Grid -->
+            <div class="grid sm:grid-cols-2 gap-4">
+                <!-- URL Import -->
+                <div class="flex bg-slate-950/80 border border-slate-800 rounded-xl p-1.5 focus-within:border-purple-500/50 transition">
+                    <input type="url" id="url-input" placeholder="Paste image web address (URL)..." class="w-full bg-transparent px-3 py-2 text-xs text-slate-300 focus:outline-none">
+                    <button id="url-btn" class="bg-slate-800 hover:bg-purple-600 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all">Fetch</button>
+                </div>
+                <!-- Clipboard Indicator Hint -->
+                <div class="flex items-center justify-center border border-slate-800 bg-slate-950/30 rounded-xl px-4 py-3 text-xs text-slate-400 space-x-2">
+                    <i class="fa-solid fa-paste text-slate-500"></i>
+                    <span>Pro-tip: Press <kbd class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">Ctrl+V</kbd> or <kbd class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">⌘+V</kbd> anywhere to paste</span>
+                </div>
             </div>
         </div>
 
-        <!-- Image Display Preview Box -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden" id="preview-container">
-            <div>
-                <p class="text-xs text-gray-400 mb-1">Original</p>
-                <img id="original-preview" class="w-full h-auto rounded-lg max-h-64 object-contain bg-gray-900" src="" alt="Original">
+        <!-- Processing State -->
+        <div id="status-card" class="hidden flex items-center space-x-4 bg-purple-950/30 border border-purple-500/30 rounded-xl px-6 py-4 max-w-md w-full backdrop-blur-md">
+            <div class="relative flex h-4 w-4">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-4 w-4 bg-purple-500"></span>
             </div>
-            <div>
-                <p class="text-xs text-gray-400 mb-1">Result</p>
-                <img id="result-preview" class="w-full h-auto rounded-lg max-h-64 object-contain bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNlZWUiLz48cmVjdCB4PSI0IiB5PSI0IiB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZWVlIi8+PC9zdmc+')] bg-repeat" src="" alt="Result">
-            </div>
+            <p id="status-text" class="text-xs font-semibold text-purple-200 tracking-wide">Initializing engine framework...</p>
         </div>
 
-        <!-- Download Action Button -->
-        <button id="download-btn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all hidden">
-            Download Transparent PNG
-        </button>
-    </div>
+        <!-- Preview Interactive Presentation Deck -->
+        <div id="preview-section" class="hidden w-full max-w-5xl grid md:grid-cols-2 gap-8 items-start">
+            
+            <!-- Original Column -->
+            <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 space-y-3">
+                <div class="flex justify-between items-center border-b border-slate-800/60 pb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400"><i class="fa-solid fa-image mr-1.5"></i> Original Resource</span>
+                    <span id="img-specs" class="text-[10px] font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-400">0x0</span>
+                </div>
+                <div class="bg-slate-950/60 rounded-xl overflow-hidden flex items-center justify-center min-h-[300px] border border-slate-900 shadow-inner">
+                    <img id="input-image" class="max-h-[400px] w-full object-contain p-2">
+                </div>
+            </div>
 
-    <script src="app.js"></script>
+            <!-- Output Column -->
+            <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 space-y-3">
+                <div class="flex justify-between items-center border-b border-slate-800/60 pb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-purple-400"><i class="fa-solid fa-sparkles mr-1.5"></i> Isolated Mask</span>
+                    <span class="text-[10px] font-mono bg-purple-950/50 px-2 py-0.5 rounded text-purple-300 border border-purple-900/40">PNG Transparent</span>
+                </div>
+                <!-- Premium Transparent Checkered Background Pattern -->
+                <div class="bg-[linear-gradient(45deg,#1e293b_25%,transparent_25%),linear-gradient(-45deg,#1e293b_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1e293b_75%),linear-gradient(-45deg,transparent_75%,#1e293b_75)] bg-[size:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0] bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center min-h-[300px] border border-slate-900 shadow-inner">
+                    <img id="output-image" class="max-h-[400px] w-full object-contain p-2 transition-all duration-300">
+                </div>
+                
+                <!-- Command Interactive Controls -->
+                <div class="pt-2">
+                    <button id="download-btn" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-purple-600/20 active:scale-[0.99] flex items-center justify-center space-x-2 text-sm cursor-pointer opacity-50 pointer-events-none">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Download Isolated Image Asset</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Global Document Footer -->
+    <footer class="border-t border-slate-800/40 bg-slate-950/20 py-4 text-center text-xs text-slate-500">
+        <p>© 2026 ClearCut Web-Compute Platform • Powered locally via ONNX Runtime Engine</p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
 </body>
 </html>
