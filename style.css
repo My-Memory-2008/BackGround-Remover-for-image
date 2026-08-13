@@ -30,7 +30,6 @@ body {
     overflow-x: hidden;
 }
 
-/* Header Banner Styling */
 header {
     border-bottom: 1px solid var(--border-color);
     background-color: rgba(2, 6, 23, 0.8);
@@ -78,7 +77,6 @@ header {
     border-radius: 50%;
 }
 
-/* Central Workspace Main Containers */
 main {
     flex: 1;
     max-width: 1000px;
@@ -110,7 +108,6 @@ main {
     font-size: 0.95rem;
 }
 
-/* Self-Diagnosing Error Console Panel */
 .error-card {
     width: 100%;
     max-width: 700px;
@@ -153,7 +150,6 @@ main {
     white-space: pre;
 }
 
-/* Dropzone Upload Toolkit */
 .workspace-card {
     width: 100%;
     max-width: 700px;
@@ -262,7 +258,6 @@ main {
     color: var(--text-main);
 }
 
-/* Status Notifications */
 .status-badge {
     background-color: rgba(168, 85, 247, 0.1);
     border: 1px solid rgba(168, 85, 247, 0.3);
@@ -281,7 +276,6 @@ main {
     color: #e9d5ff;
 }
 
-/* Viewport Comparisons Split Deck */
 .preview-grid {
     width: 100%;
     display: grid;
@@ -342,7 +336,6 @@ main {
     border: 1px solid rgba(0,0,0,0.5);
 }
 
-/* Transparent Background Grid Checkers */
 .image-viewport.checkered {
     background-image: linear-gradient(45deg, #1e293b 25%, transparent 25%), 
                       linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
@@ -363,7 +356,6 @@ main {
 .opacity-dim { opacity: 0.3; }
 .hidden { display: none !important; }
 
-/* Download Call to Actions */
 .download-btn {
     width: 100%;
     background: linear-gradient(to right, var(--accent-purple), var(--accent-pink));
