@@ -24,11 +24,11 @@ const errorTrace = document.getElementById('error-trace');
 // Core Click Setup: Click the box area to activate browsing windows
 dropZone.addEventListener('click', () => fileInput.click());
 
-// Handle explicit system browse selection uploads
+// Handle manual file selection changes
 fileInput.addEventListener('change', (event) => {
     if (event.target.files && event.target.files.length > 0) {
         clearActiveErrors();
-        // Correctly extract the first true file object from the list bundle
+        // FIXED: Extract the single File object [0] from the FileList collection array
         processTargetBlob(event.target.files[0]);
     }
 });
@@ -57,7 +57,7 @@ dropZone.addEventListener('drop', (e) => {
     
     const dataPayload = e.dataTransfer;
     if (dataPayload && dataPayload.files && dataPayload.files.length > 0) {
-        // Extract the exact first file dropped onto the element box safely
+        // FIXED: Extract the single File object [0] from the dragged FileList array safely
         processTargetBlob(dataPayload.files[0]);
     }
 });
@@ -101,11 +101,11 @@ urlBtn.addEventListener('click', async () => {
     }
 });
 
-// Core File Normalizer: Turns input files into transparent canvas structures
+// Core File Normalizer
 async function processTargetBlob(incomingFileOrBlob) {
     if (!incomingFileOrBlob) return;
 
-    // Direct string layout matching evaluation
+    // Check file structure standard types
     if (!incomingFileOrBlob.type || !incomingFileOrBlob.type.startsWith('image/')) {
         showDiagnosticCrashCard(
             "Format Rejection",
@@ -136,7 +136,7 @@ async function processTargetBlob(incomingFileOrBlob) {
             
             const liveUrlView = URL.createObjectURL(compiledPngBlob);
             
-            // Pop open container preview boxes
+            // Render container preview boxes
             previewSection.classList.remove('hidden');
             inputImage.src = liveUrlView;
             outputImage.src = "";
@@ -169,7 +169,7 @@ async function processTargetBlob(incomingFileOrBlob) {
 async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
     toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
-        // Runs the AI model locally inside the visitor's browser thread
+        // Runs the AI model locally inside the browser thread
         const outputResultBlob = await removeBackground(cleanPngBlob, {
             progress: (instance, doneAmount, totalAmount) => {
                 const percentDone = Math.round((doneAmount / totalAmount) * 100);
