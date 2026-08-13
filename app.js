@@ -1,6 +1,6 @@
 import { removeBackground } from "https://jsdelivr.net";
 
-// User Interface Node Bindings
+// User Interface DOM Target Connections
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const urlInput = document.getElementById('url-input');
@@ -15,223 +15,218 @@ const outputImage = document.getElementById('output-image');
 const downloadBtn = document.getElementById('download-btn');
 const imgSpecs = document.getElementById('img-specs');
 
-// Error Reporting Panel Node Bindings
 const errorCard = document.getElementById('error-card');
 const errorTitle = document.getElementById('error-title');
 const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
-// Clear error banner on click
-const errorClose = document.getElementById('error-close');
-if (errorClose) {
-    errorClose.addEventListener('click', () => errorCard.classList.add('hidden'));
-}
-
-// Global Core Script Error Interceptor
-window.onerror = function (message, source, lineno, colno, error) {
-    displayDiagnosticError(
-        "Script Runtime Fault", 
-        "Application JavaScript Error", 
-        "An unexpected script issue occurred on the interface thread layer.", 
-        `Message: ${message}\nSource: ${source}\nLine: ${lineno}:${colno}`
-    );
-    toggleLoadingState(false);
-    return false;
-};
-
-// Click dropzone to open native file browser dialog
+// Core Click Setup: Click the box area to activate browsing windows
 dropZone.addEventListener('click', () => fileInput.click());
 
-// Handle standard manual button clicks
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-        errorCard.classList.add('hidden');
-        evaluateIncomingBlob(e.target.files[0], e.target.files[0].name);
+// Handle explicit system browse selection uploads
+fileInput.addEventListener('change', (event) => {
+    if (event.target.files && event.target.files.length > 0) {
+        clearActiveErrors();
+        // Correctly extract the first true file object from the list bundle
+        processTargetBlob(event.target.files[0]);
     }
 });
 
-// Drag and Drop Layout Event Interceptors
-['dragenter', 'dragover'].forEach(interactionTag => {
-    dropZone.addEventListener(interactionTag, (eventState) => {
-        eventState.preventDefault();
+// Drag and Drop State Animation Styles
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
         dropZone.style.borderColor = "var(--accent-purple)";
         dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.6)";
     }, false);
 });
 
-['dragleave', 'drop'].forEach(interactionTag => {
-    dropZone.addEventListener(interactionTag, (eventState) => {
-        eventState.preventDefault();
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
         dropZone.style.borderColor = "var(--border-color)";
         dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.3)";
     }, false);
 });
 
-dropZone.addEventListener('drop', (dropEvent) => {
-    dropEvent.preventDefault();
-    errorCard.classList.add('hidden');
+// Drop zone drop trigger processor
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    clearActiveErrors();
     
-    const transferPayload = dropEvent.dataTransfer;
-    if (transferPayload && transferPayload.files.length > 0) {
-        const droppedFile = transferPayload.files[0];
-        evaluateIncomingBlob(droppedFile, droppedFile.name);
+    const dataPayload = e.dataTransfer;
+    if (dataPayload && dataPayload.files && dataPayload.files.length > 0) {
+        // Extract the exact first file dropped onto the element box safely
+        processTargetBlob(dataPayload.files[0]);
     }
 });
 
-// Web Address URL Asset Import Engine
-urlBtn.addEventListener('click', async () => {
-    const targetUrl = urlInput.value.trim();
-    if (!targetUrl) return;
+// Clipboard Paste Actions Loader Tracker
+window.addEventListener('paste', async (e) => {
+    const clipboardPayload = e.clipboardData?.items;
+    if (!clipboardPayload) return;
     
-    errorCard.classList.add('hidden'); 
-    toggleLoadingState(true, "Fetching remote resource link standard parameters...");
-    
-    try {
-        const response = await fetch(targetUrl);
-        if (!response.ok) throw new Error(`HTTP Error Code: ${response.status}`);
-        const blobStream = await response.blob();
-        evaluateIncomingBlob(blobStream, "downloaded-url-resource.png");
-    } catch (networkError) {
-        displayDiagnosticError(
-            "CORS or Network Blocked",
-            "Network Request Failure",
-            "Could not pull the graphic from the external web link. The target domain likely prevents script access due to Cross-Origin Resource Sharing (CORS) isolation laws.",
-            networkError.message
-        );
-        toggleLoadingState(false);
-    }
-});
-
-// OS Clipboard Instant Paste Event Handling Hook
-window.addEventListener('paste', async (pasteEvent) => {
-    const clipItems = pasteEvent.clipboardData?.items;
-    if (!clipItems) return;
-    for (let currentItem of clipItems) {
-        if (currentItem.type.indexOf("image") !== -1) {
-            errorCard.classList.add('hidden');
-            const dataBlob = currentItem.getAsFile();
-            evaluateIncomingBlob(dataBlob, "pasted-clipboard-asset.png");
+    for (let item of clipboardPayload) {
+        if (item.type.indexOf("image") !== -1) {
+            clearActiveErrors();
+            const matchingFile = item.getAsFile();
+            processTargetBlob(matchingFile);
             break;
         }
     }
 });
 
-// Normalized Data Controller: Normalizes raw formats into standard 2D contexts
-async function evaluateIncomingBlob(fileBlob, outputReferenceName) {
-    if (!fileBlob || !fileBlob.type.startsWith('image/')) {
-        displayDiagnosticError(
-            "Invalid Structural Type",
-            "File Verification Fault",
-            "The chosen asset presents an invalid structural MIME standard tag signature.",
-            "Processing cancelled."
+// Fetch Remote Web Address URLs
+urlBtn.addEventListener('click', async () => {
+    const rawUrl = urlInput.value.trim();
+    if (!rawUrl) return;
+    
+    clearActiveErrors();
+    toggleLoaderDisplay(true, "Downloading image file from URL stream...");
+    
+    try {
+        const response = await fetch(rawUrl);
+        if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
+        const imageBlob = await response.blob();
+        processTargetBlob(imageBlob, "downloaded_image.png");
+    } catch (err) {
+        showDiagnosticCrashCard(
+            "Network Request Blocked",
+            "CORS Access Error",
+            "Could not load the image from that URL. The website hosting this image is blocking direct access due to Cross-Origin Security Laws.",
+            err.message
+        );
+        toggleLoaderDisplay(false);
+    }
+});
+
+// Core File Normalizer: Turns input files into transparent canvas structures
+async function processTargetBlob(incomingFileOrBlob) {
+    if (!incomingFileOrBlob) return;
+
+    // Direct string layout matching evaluation
+    if (!incomingFileOrBlob.type || !incomingFileOrBlob.type.startsWith('image/')) {
+        showDiagnosticCrashCard(
+            "Format Rejection",
+            "Unsupported Extension Type",
+            "The upload failed because this file type is not a valid format. Please choose an image like PNG, JPG, or WEBP.",
+            `Received Type: ${incomingFileOrBlob.type || 'Unknown configuration'}`
         );
         return;
     }
 
-    toggleLoadingState(true, "Aligning image boundary coordinate streams...");
-    
-    try {
-        const visualBitmap = await createImageBitmap(fileBlob);
-        const transformCanvas = document.createElement('canvas');
-        transformCanvas.width = visualBitmap.width;
-        transformCanvas.height = visualBitmap.height;
-        
-        const render2DContext = transformCanvas.getContext('2d');
-        if (!render2DContext) throw new Error("Could not initialize 2D context canvas.");
-        
-        render2DContext.drawImage(visualBitmap, 0, 0);
-        imgSpecs.innerText = `${visualBitmap.width} × ${visualBitmap.height}`;
+    toggleLoaderDisplay(true, "Decoding graphical layout arrays...");
+    const dynamicFallbackName = incomingFileOrBlob.name || "processed_asset.png";
 
-        transformCanvas.toBlob(async (pngBlobPayload) => {
-            if (!pngBlobPayload) throw new Error("Canvas payload export pipeline failure.");
-            const sourceUrlReference = URL.createObjectURL(pngBlobPayload);
+    try {
+        const decodedBitmap = await createImageBitmap(incomingFileOrBlob);
+        const internalCanvas = document.createElement('canvas');
+        internalCanvas.width = decodedBitmap.width;
+        internalCanvas.height = decodedBitmap.height;
+        
+        const context = internalCanvas.getContext('2d');
+        if (!context) throw new Error("Could not draw local pixel buffer allocations.");
+        
+        context.drawImage(decodedBitmap, 0, 0);
+        imgSpecs.innerText = `${decodedBitmap.width} × ${decodedBitmap.height}`;
+
+        internalCanvas.toBlob(async (compiledPngBlob) => {
+            if (!compiledPngBlob) throw new Error("Canvas pipeline compilation failed.");
             
+            const liveUrlView = URL.createObjectURL(compiledPngBlob);
+            
+            // Pop open container preview boxes
             previewSection.classList.remove('hidden');
-            inputImage.src = sourceUrlReference;
+            inputImage.src = liveUrlView;
             outputImage.src = "";
             outputImage.classList.add('opacity-dim');
-            configureDownloadTriggerState(false);
+            setDownloadButtonState(false);
 
-            await executeONNXSegmentationAI(pngBlobPayload, outputReferenceName);
+            await runNeuralBackgroundAI(compiledPngBlob, dynamicFallbackName);
         }, 'image/png');
 
-    } catch (renderingFault) {
-        // Fallback processing attempt if canvas acceleration framework fails
+    } catch (pipelineFault) {
+        console.warn("Canvas hardware accelerator unavailable. Reverting to direct link layout streams: ", pipelineFault);
         try {
-            const secondarySourceUrl = URL.createObjectURL(fileBlob);
+            const rawDirectUrl = URL.createObjectURL(incomingFileOrBlob);
             previewSection.classList.remove('hidden');
-            inputImage.src = secondarySourceUrl;
-            await executeONNXSegmentationAI(fileBlob, outputReferenceName);
-        } catch (fallbackFault) {
-            displayDiagnosticError(
-                "Decompression Crash",
-                "Canvas Context Loss",
-                "The browser failed to cleanly read or draw this binary image file structure onto the layout view.",
-                renderingFault.message
+            inputImage.src = rawDirectUrl;
+            await runNeuralBackgroundAI(incomingFileOrBlob, dynamicFallbackName);
+        } catch (finalCrashState) {
+            showDiagnosticCrashCard(
+                "Image Loading Error",
+                "Layout Reader Fault",
+                "The browser failed to read or display this image layout structure.",
+                pipelineFault.message
             );
-            toggleLoadingState(false);
+            toggleLoaderDisplay(false);
         }
     }
 }
 
-// Executes background extraction model operation locally
-async function executeONNXSegmentationAI(binaryTargetBlob, finalNameString) {
-    toggleLoadingState(true, "AI executing background segmentation layer (Computing locally)...");
+// Executes background removal model natively via ONNX WebAssembly
+async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
+    toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
-        const processedBlobOutput = await removeBackground(binaryTargetBlob, {
-            progress: (instance, computedUnits, maxUnits) => {
-                const extractionPercentage = Math.round((computedUnits / maxUnits) * 100);
-                toggleLoadingState(true, `Analyzing focal subject shapes... (${isNaN(extractionPercentage) ? 0 : extractionPercentage}%)`);
+        // Runs the AI model locally inside the visitor's browser thread
+        const outputResultBlob = await removeBackground(cleanPngBlob, {
+            progress: (instance, doneAmount, totalAmount) => {
+                const percentDone = Math.round((doneAmount / totalAmount) * 100);
+                toggleLoaderDisplay(true, `Isolating subject shapes... (${isNaN(percentDone) ? 0 : percentDone}%)`);
             }
         });
 
-        const explicitMaskUrl = URL.createObjectURL(processedBlobOutput);
-        outputImage.src = explicitMaskUrl;
+        const maskObjectURL = URL.createObjectURL(outputResultBlob);
+        outputImage.src = maskObjectURL;
         outputImage.classList.remove('opacity-dim');
         
-        configureDownloadTriggerState(true, () => {
-            const anchorElement = document.createElement('a');
-            anchorElement.href = explicitMaskUrl;
-            const absoluteCleanName = finalNameString.substring(0, finalNameString.lastIndexOf('.')) || finalNameString;
-            anchorElement.download = `${absoluteCleanName}_clearcut.png`;
-            anchorElement.click();
+        setDownloadButtonState(true, () => {
+            const transferAnchor = document.createElement('a');
+            transferAnchor.href = maskObjectURL;
+            const basicCleanedName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
+            transferAnchor.download = `${basicCleanedName}_clearcut.png`;
+            transferAnchor.click();
         });
 
-        toggleLoadingState(false);
-    } catch (aiModelProcessingFault) {
-        displayDiagnosticError(
-            "Neural Engine Failure",
-            "ONNX Pipeline Break",
-            "The localized background extraction model crashed. This typically happens if the browser tab runs low on memory space.",
-            aiModelProcessingFault.message || "WASM Memory limits reached."
+        toggleLoaderDisplay(false);
+    } catch (aiComputeFault) {
+        showDiagnosticCrashCard(
+            "AI Core Engine Issue",
+            "ONNX Model Memory Exception",
+            "The background removal failed. This usually happens if your browser tab runs out of memory while processing very large high-resolution images.",
+            aiComputeFault.message || "WASM Stack limit reached"
         );
-        toggleLoadingState(false);
+        toggleLoaderDisplay(false);
     }
 }
 
-function displayDiagnosticError(badgeString, headlineString, paragraphString, stackTraceData) {
-    errorBadge.innerText = badgeString;
-    errorTitle.innerText = headlineString;
-    errorDesc.innerText = paragraphString;
-    errorTrace.innerText = stackTraceData || "No technical logs provided.";
+function clearActiveErrors() {
+    errorCard.classList.add('hidden');
+}
+
+function showDiagnosticCrashCard(badge, title, message, stackTrace) {
+    errorBadge.innerText = badge;
+    errorTitle.innerText = title;
+    errorDesc.innerText = message;
+    errorTrace.innerText = stackTrace || "No structural trace reporting active.";
     errorCard.classList.remove('hidden');
     errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function toggleLoadingState(shouldDisplay, dynamicText = "") {
-    if (shouldDisplay) {
+function toggleLoaderDisplay(visible, trackingText = "") {
+    if (visible) {
         statusCard.classList.remove('hidden');
-        statusText.innerText = dynamicText;
+        statusText.innerText = trackingText;
     } else {
         statusCard.classList.add('hidden');
     }
 }
 
-function configureDownloadTriggerState(isAvailable, executionCallback = null) {
-    if (isAvailable) {
+function setDownloadButtonState(enabled, clickCallback = null) {
+    if (enabled) {
         downloadBtn.classList.remove('disabled');
-        downloadBtn.onclick = executionCallback;
+        downloadBtn.onclick = clickCallback;
     } else {
         downloadBtn.classList.add('disabled');
         downloadBtn.onclick = null;
