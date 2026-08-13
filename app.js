@@ -1,4 +1,4 @@
-import { removeBackground } from "https://jsdelivr.net";
+import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // User Interface DOM Target Connections
 const dropZone = document.getElementById('drop-zone');
@@ -24,16 +24,17 @@ const errorTrace = document.getElementById('error-trace');
 // Core Click Setup: Click the box area to activate browsing windows
 dropZone.addEventListener('click', () => fileInput.click());
 
-// Handle manual file selection changes
+// Handle explicit system browse selection uploads
 fileInput.addEventListener('change', (event) => {
     if (event.target.files && event.target.files.length > 0) {
         clearActiveErrors();
-        // FIXED: Extract the single File object [0] from the FileList collection array
-        processTargetBlob(event.target.files[0]);
+        // UNPACK ACTION: Safely extract the raw File element from the wrapper collection array
+        const rawFileObj = event.target.files[0];
+        processTargetBlob(rawFileObj);
     }
 });
 
-// Drag and Drop State Animation Styles
+// Drag and Drop Layout Event Interceptors
 ['dragenter', 'dragover'].forEach(eventName => {
     dropZone.addEventListener(eventName, (e) => {
         e.preventDefault();
@@ -57,8 +58,9 @@ dropZone.addEventListener('drop', (e) => {
     
     const dataPayload = e.dataTransfer;
     if (dataPayload && dataPayload.files && dataPayload.files.length > 0) {
-        // FIXED: Extract the single File object [0] from the dragged FileList array safely
-        processTargetBlob(dataPayload.files[0]);
+        // UNPACK ACTION: Safely pull index zero from the drag file collection stream
+        const rawFileObj = dataPayload.files[0];
+        processTargetBlob(rawFileObj);
     }
 });
 
@@ -94,24 +96,24 @@ urlBtn.addEventListener('click', async () => {
         showDiagnosticCrashCard(
             "Network Request Blocked",
             "CORS Access Error",
-            "Could not load the image from that URL. The website hosting this image is blocking direct access due to Cross-Origin Security Laws.",
+            "Could not load the image from that URL. The website hosting this image blocks direct script access due to Cross-Origin Security Laws.",
             err.message
         );
         toggleLoaderDisplay(false);
     }
 });
 
-// Core File Normalizer
+// Core File Processor
 async function processTargetBlob(incomingFileOrBlob) {
     if (!incomingFileOrBlob) return;
 
-    // Check file structure standard types
+    // Check file structure type configurations safely
     if (!incomingFileOrBlob.type || !incomingFileOrBlob.type.startsWith('image/')) {
         showDiagnosticCrashCard(
             "Format Rejection",
             "Unsupported Extension Type",
             "The upload failed because this file type is not a valid format. Please choose an image like PNG, JPG, or WEBP.",
-            `Received Type: ${incomingFileOrBlob.type || 'Unknown configuration'}`
+            `Received Type: ${incomingFileOrBlob.type || 'Unknown'}`
         );
         return;
     }
@@ -136,7 +138,6 @@ async function processTargetBlob(incomingFileOrBlob) {
             
             const liveUrlView = URL.createObjectURL(compiledPngBlob);
             
-            // Render container preview boxes
             previewSection.classList.remove('hidden');
             inputImage.src = liveUrlView;
             outputImage.src = "";
@@ -169,7 +170,6 @@ async function processTargetBlob(incomingFileOrBlob) {
 async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
     toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
-        // Runs the AI model locally inside the browser thread
         const outputResultBlob = await removeBackground(cleanPngBlob, {
             progress: (instance, doneAmount, totalAmount) => {
                 const percentDone = Math.round((doneAmount / totalAmount) * 100);
