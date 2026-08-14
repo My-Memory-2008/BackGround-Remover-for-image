@@ -238,3 +238,127 @@ function setDownloadButtonState(enabled, clickCallback = null) {
 
 
 
+
+
+
+
+
+
+
+// Add these new elements to your DOM references
+const visionPrompt = document.getElementById('vision-prompt');
+const autoEnhanceBtn = document.getElementById('auto-enhance-btn');
+const enhanceWithPromptBtn = document.getElementById('enhance-with-prompt-btn');
+const enhancementPreview = document.getElementById('enhancement-preview');
+const originalEnhanceView = document.getElementById('original-enhance-view');
+const enhancedImageView = document.getElementById('enhanced-image-view');
+const useEnhancedBtn = document.getElementById('use-enhanced-btn');
+
+// Currently using placeholder API - you'll want to replace with actual vision model
+async function enhanceImageWithVision(imageBlob, prompt = "") {
+    toggleLoaderDisplay(true, "Analyzing image with vision model...");
+    
+    try {
+        // This is a placeholder - replace with actual vision model call
+        // Options: OpenAI GPT-4 Vision API, Anthropic Claude Vision, or local model
+        const formData = new FormData();
+        formData.append('image', imageBlob, 'input.jpg');
+        if(prompt) formData.append('prompt', prompt);
+        
+        // Example using a hypothetical vision API (you'll need to adapt)
+        const response = await fetch('/api/vision-enhance', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                // Authorization headers if needed
+            }
+        });
+        
+        if(!response.ok) throw new Error('Vision enhancement failed');
+        
+        const enhancedBlob = await response.blob();
+        return enhancedBlob;
+        
+    } catch(error) {
+        console.error('Vision enhancement error:', error);
+        showDiagnosticCrashCard(
+            "Vision Enhancement Failed",
+            "AI Processing Error",
+            "Could not enhance image with vision model. Using original image instead.",
+            error.message
+        );
+        // Return original blob if enhancement fails
+        return imageBlob;
+    }
+}
+
+// Event listeners for enhancement
+autoEnhanceBtn.addEventListener('click', async () => {
+    if(!currentImageBlob) {
+        showDiagnosticCrashCard(
+            "No Image Selected",
+            "Upload Required",
+            "Please upload an image first before attempting enhancement."
+        );
+        return;
+    }
+    
+    const enhancedBlob = await enhanceImageWithVision(currentImageBlob);
+    displayEnhancementPreview(currentImageBlob, enhancedBlob);
+});
+
+enhanceWithPromptBtn.addEventListener('click', async () => {
+    if(!currentImageBlob) {
+        showDiagnosticCrashCard(
+            "No Image Selected", 
+            "Upload Required",
+            "Please upload an image first before attempting enhancement."
+        );
+        return;
+    }
+    
+    const prompt = visionPrompt.value.trim();
+    if(!prompt) {
+        showDiagnosticCrashCard(
+            "Prompt Required",
+            "No Description Provided",
+            "Please enter a description of what to focus on for enhancement."
+        );
+        return;
+    }
+    
+    const enhancedBlob = await enhanceImageWithVision(currentImageBlob, prompt);
+    displayEnhancementPreview(currentImageBlob, enhancedBlob);
+});
+
+function displayEnhancementPreview(originalBlob, enhancedBlob) {
+    const originalUrl = URL.createObjectURL(originalBlob);
+    const enhancedUrl = URL.createObjectURL(enhancedBlob);
+    
+    originalEnhanceView.src = originalUrl;
+    enhancedImageView.src = enhancedUrl;
+    
+    enhancementPreview.classList.remove('hidden');
+    
+    // Store the enhanced blob for later use
+    window.enhancedImageBlob = enhancedBlob;
+}
+
+useEnhancedBtn.addEventListener('click', () => {
+    // Use the enhanced image for background removal
+    if(window.enhancedImageBlob) {
+        processTargetBlob(window.enhancedImageBlob);
+        enhancementPreview.classList.add('hidden');
+    }
+});
+
+// Global variable to store current image for enhancement
+let currentImageBlob = null;
+
+// Modify your existing processTargetBlob function to store the blob
+async function processTargetBlob(incomingFileOrBlob) {
+    // Store for potential enhancement
+    currentImageBlob = incomingFileOrBlob;
+    
+    // Rest of your existing function remains the same...
+}
