@@ -243,208 +243,252 @@
 import { removeBackground } from "https://jsdelivr.net";
 import { pipeline } from "https://jsdelivr.net";
 
-// Connect to your exact DOM element structures
+// Connect to Section 1 Nodes (AI Vision Analyzer)
+const dropZoneVision = document.getElementById('drop-zone-vision');
+const fileInputVision = document.getElementById('file-input-vision');
+const promptInput = document.getElementById('prompt-input');
+const analyzeBtn = document.getElementById('analyze-btn');
+const visionPreviewSection = document.getElementById('vision-preview-section');
+const visionInputImage = document.getElementById('vision-input-image');
+const visionImgSpecs = document.getElementById('vision-img-specs');
+const aiThoughtBox = document.getElementById('ai-thought-box');
+const sendToRemoverBtn = document.getElementById('send-to-remover-btn');
+
+// Connect to Section 2 Nodes (Your original functional layout nodes)
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const urlInput = document.getElementById('url-input');
 const urlBtn = document.getElementById('url-btn');
-const promptInput = document.getElementById('prompt-input');
-
-const statusCard = document.getElementById('status-card');
-const statusText = document.getElementById('status-text');
+const processBgBtn = document.getElementById('process-bg-btn');
 const previewSection = document.getElementById('preview-section');
-const aiThoughtBox = document.getElementById('ai-thought-box');
-
 const inputImage = document.getElementById('input-image');
 const outputImage = document.getElementById('output-image');
 const downloadBtn = document.getElementById('download-btn');
 const imgSpecs = document.getElementById('img-specs');
 
+// Shared layout controls
+const statusCard = document.getElementById('status-card');
+const statusText = document.getElementById('status-text');
 const errorCard = document.getElementById('error-card');
 const errorTitle = document.getElementById('error-title');
 const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
-// Model Memory Cache states
+// Holding state containers
+let masterVisionFile = null;
+let masterRemoverFile = null;
+let dynamicOptimizedBlob = null;
 let visionModelCache = null;
 
-// Activate upload window on clicking your working container
+// ==========================================
+// SECTION 1 BINDINGS (AI Vision Panel)
+// ==========================================
+dropZoneVision.addEventListener('click', () => fileInputVision.click());
+
+fileInputVision.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+        clearActiveErrors();
+        masterVisionFile = e.target.files[0]; // Extract file directly
+        analyzeBtn.classList.remove('disabled');
+        dropZoneVision.style.borderColor = "var(--success-green)";
+    }
+});
+
+setupDropEvents(dropZoneVision, (unpackedFile) => {
+    masterVisionFile = unpackedFile;
+    analyzeBtn.classList.remove('disabled');
+    dropZoneVision.style.borderColor = "var(--success-green)";
+});
+
+analyzeBtn.addEventListener('click', async () => {
+    if (!masterVisionFile) return;
+    clearActiveErrors();
+    toggleLoader(true, "Downloading/Waking on-device AI vision model...");
+    
+    try {
+        if (!visionModelCache) {
+            visionModelCache = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
+        }
+        toggleLoader(true, "AI assessing image structures and layout textures...");
+        const localURL = URL.createObjectURL(masterVisionFile);
+        
+        const result = await visionModelCache(localURL);
+        const classification = result[0]?.generated_text || "unidentified creative objects";
+        
+        toggleLoader(true, "Modifying clarity channels and contrast boundaries...");
+        dynamicOptimizedBlob = await applyImageProcessingPipeline(masterVisionFile, classification, promptInput.value.trim(), visionImgSpecs);
+        
+        visionPreviewSection.classList.remove('hidden');
+        visionInputImage.src = URL.createObjectURL(dynamicOptimizedBlob);
+        aiThoughtBox.innerHTML = `<strong>AI Discovery:</strong> Detected "${classification}". Calibrated details based on prompt layers. Click the forward button below to push it to the eraser.`;
+        toggleLoader(false);
+    } catch (err) {
+        showCrashCard("Vision Exception", "Model Load Blocked", "Failed to compile feature analytics layer.", err.message);
+        toggleLoader(false);
+    }
+});
+
+sendToRemoverBtn.addEventListener('click', () => {
+    if (!dynamicOptimizedBlob) return;
+    masterRemoverFile = dynamicOptimizedBlob;
+    processBgBtn.classList.remove('disabled');
+    dropZone.style.borderColor = "var(--accent-purple)";
+    dropZone.style.backgroundColor = "rgba(168, 85, 247, 0.1)";
+    document.getElementById('remover-card-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+// ==========================================
+// SECTION 2 BINDINGS (Your Original Background Remover)
+// ==========================================
 dropZone.addEventListener('click', () => fileInput.click());
 
-// Hand over your selected file using your previous working array extractor logic
 fileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
         clearActiveErrors();
-        processMasterUploadPipeline(e.target.files[0]);
+        masterRemoverFile = e.target.files[0]; // Extract file directly
+        processBgBtn.classList.remove('disabled');
+        dropZone.style.borderColor = "var(--success-green)";
     }
 });
 
-// Drag and drop controls matched directly to your layout styles
-['dragenter', 'dragover'].forEach(name => {
-    dropZone.addEventListener(name, (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = "var(--accent-purple)";
-        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.6)";
-    }, false);
-});
-['dragleave', 'drop'].forEach(name => {
-    dropZone.addEventListener(name, (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = "var(--border-color)";
-        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.3)";
-    }, false);
-});
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    clearActiveErrors();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        processMasterUploadPipeline(e.dataTransfer.files[0]);
-    }
+setupDropEvents(dropZone, (unpackedFile) => {
+    masterRemoverFile = unpackedFile;
+    processBgBtn.classList.remove('disabled');
+    dropZone.style.borderColor = "var(--success-green)";
 });
 
-// OS Clipboard Instant Paste Event Handling Hook
 window.addEventListener('paste', async (e) => {
-    const clipItems = e.clipboardData?.items;
-    if (!clipItems) return;
-    for (let item of clipItems) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let item of items) {
         if (item.type.indexOf("image") !== -1) {
             clearActiveErrors();
-            processMasterUploadPipeline(item.getAsFile());
+            const file = item.getAsFile();
+            masterRemoverFile = file;
+            processBgBtn.classList.remove('disabled');
+            dropZone.style.borderColor = "var(--success-green)";
             break;
         }
     }
 });
 
-// Fetch Remote URL addresses smoothly
 urlBtn.addEventListener('click', async () => {
     const rawUrl = urlInput.value.trim();
     if (!rawUrl) return;
     clearActiveErrors();
-    toggleLoader(true, "Downloading web image file URL stream...");
+    toggleLoader(true, "Fetching remote target address image stream...");
     try {
-        const response = await fetch(rawUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const imageBlob = await response.blob();
-        processMasterUploadPipeline(imageBlob);
+        const res = await fetch(rawUrl);
+        if (!res.ok) throw new Error(`HTTP Error Status: ${res.status}`);
+        const blob = await res.blob();
+        masterRemoverFile = blob;
+        processBgBtn.classList.remove('disabled');
+        dropZone.style.borderColor = "var(--success-green)";
+        toggleLoader(false);
     } catch (err) {
-        showCrashCard("URL Blocked", "CORS Restriction Exception", "Could not fetch image. The server hosting it blocks browser script access.", err.message);
+        showCrashCard("Network Failure", "CORS Request Blocked", "Could not fetch image file due to security cross-origin policies.", err.message);
         toggleLoader(false);
     }
 });
-// ==========================================
-// TWO-STAGE AI PIPELINE COMPUTE OPERATIONS
-// ==========================================
-async function processMasterUploadPipeline(rawFileOrBlob) {
-    if (!rawFileOrBlob) return;
+
+processBgBtn.addEventListener('click', async () => {
+    if (!masterRemoverFile) return;
+    clearActiveErrors();
+    toggleLoader(true, "AI loading model parameters into local compute slots...");
     
-    // Safety file format verification check
-    if (!rawFileOrBlob.type || !rawFileOrBlob.type.startsWith('image/')) {
-        showCrashCard("Format Denied", "Unsupported Extension File", "Please upload a standardized image format like PNG, JPG, or WEBP.", "");
-        return;
-    }
-
-    toggleLoader(true, "Stage 1: Waking local AI Vision Analysis model...");
-    const temporarySourceUrl = URL.createObjectURL(rawFileOrBlob);
-
     try {
-        // Initialize HuggingFace Vision Processor model completely inside the browser client thread
-        if (!visionModelCache) {
-            visionModelCache = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
-        }
-        
-        toggleLoader(true, "AI reading composition elements & checking edge contrast parameters...");
-        const visionAnalysisOutput = await visionModelCache(temporarySourceUrl);
-        const classificationText = visionAnalysisOutput?.[0]?.generated_text || "unidentified image scenery contours";
-
-        toggleLoader(true, "Normalizing file pixel curves & enhancing edge details...");
-        
-        // Execute canvas filter modifications dynamically
-        const enhancedBlobPayload = await applyImageProcessingPipeline(rawFileOrBlob, classificationText, promptInput.value.trim());
-        const dynamicEnhancedUrl = URL.createObjectURL(enhancedBlobPayload);
-
-        // Update Viewport frames
         previewSection.classList.remove('hidden');
-        inputImage.src = dynamicEnhancedUrl;
+        inputImage.src = URL.createObjectURL(masterRemoverFile);
         outputImage.src = "";
         outputImage.classList.add('opacity-dim');
         setDownloadButton(false);
-        aiThoughtBox.innerHTML = `<strong>AI Analysis:</strong> Found "${classificationText}". Pre-tuned contrast matrix to optimize background removal sharpness!`;
 
-        // STAGE 2: Pass the optimized image straight into the background removal tool instantly
-        toggleLoader(true, "Stage 2: AI calculating background extraction mask contours (Computing locally)...");
-        
-        const clearCutoutBlob = await removeBackground(enhancedBlobPayload, {
-            progress: (instance, done, max) => {
-                const percentageDone = Math.round((done / max) * 100);
-                toggleLoader(true, `Stripping background elements... (${isNaN(percentageDone) ? 0 : percentageDone}%)`);
+        const transparentOutputBlob = await removeBackground(masterRemoverFile, {
+            progress: (instance, current, total) => {
+                const percent = Math.round((current / total) * 100);
+                toggleLoader(true, `Stripping background boundaries... (${isNaN(percent) ? 0 : percent}%)`);
             }
         });
-
-        const cleanMaskObjectURL = URL.createObjectURL(clearCutoutBlob);
-        outputImage.src = cleanMaskObjectURL;
+        
+        const outputURL = URL.createObjectURL(transparentOutputBlob);
+        outputImage.src = outputURL;
         outputImage.classList.remove('opacity-dim');
-
+        
         setDownloadButton(true, () => {
             const anchor = document.createElement('a');
-            anchor.href = cleanMaskObjectURL;
-            anchor.download = `clearcut_pro_${rawFileOrBlob.name || 'asset.png'}`;
+            anchor.href = outputURL;
+            anchor.download = `clearcut_output.png`;
             anchor.click();
         });
-
         toggleLoader(false);
-
-    } catch (pipelineCrash) {
-        showCrashCard("Pipeline Error", "Processing Layer Exception", "An error occurred during image compilation steps.", pipelineCrash.message);
+    } catch (aiErr) {
+        showCrashCard("Model Exception", "ONNX Layer Overflow", "The background remover thread ran out of memory parameters.", aiErr.message);
         toggleLoader(false);
     }
+});
+
+// Shared helper functions
+function setupDropEvents(elementTarget, callback) {
+    ['dragenter', 'dragover'].forEach(n => {
+        elementTarget.addEventListener(n, (e) => {
+            e.preventDefault();
+            elementTarget.style.borderColor = "var(--accent-purple)";
+        }, false);
+    });
+    ['dragleave', 'drop'].forEach(n => {
+        elementTarget.addEventListener(n, (e) => {
+            e.preventDefault();
+            elementTarget.style.borderColor = "var(--border-color)";
+        }, false);
+    });
+    elementTarget.addEventListener('drop', (e) => {
+        e.preventDefault();
+        clearActiveErrors();
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            callback(e.dataTransfer.files[0]); // Unpack item safely
+        }
+    });
 }
 
-// Canvas Matrix Image Processing Operations Filter Engine
-function applyImageProcessingPipeline(blobSource, aiClassification, userDirectivePrompt) {
+function applyImageProcessingPipeline(blob, tags, prompt, specsLabel) {
     return new Promise((resolve, reject) => {
-        const imageFrame = new Image();
-        imageFrame.src = URL.createObjectURL(blobSource);
-        imageFrame.onload = () => {
-            const processingCanvas = document.createElement('canvas');
-            processingCanvas.width = imageFrame.width;
-            processingCanvas.height = imageFrame.height;
-            imgSpecs.innerText = `${imageFrame.width} × ${imageFrame.height}`;
+        const img = new Image();
+        img.src = URL.createObjectURL(blob);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            specsLabel.innerText = `${img.width} × ${img.height}`;
+            if (specsLabel === visionImgSpecs) imgSpecs.innerText = `${img.width} × ${img.height}`;
             
-            const context2D = processingCanvas.getContext('2d');
-            let structuralFilterMatrix = "contrast(1.20) brightness(1.05) saturate(1.10)";
+            const ctx = canvas.getContext('2d');
+            let matrixFilter = "contrast(1.25) brightness(1.04) saturate(1.10)";
+            const checkStrings = (tags + " " + prompt).toLowerCase();
             
-            const evaluateCombinedPrompts = (aiClassification + " " + userDirectivePrompt).toLowerCase();
-            
-            // Adjust canvas balance sliders automatically based on vision analysis or prompt tags
-            if (evaluateCombinedPrompts.includes("sharpen") || evaluateCombinedPrompts.includes("dark") || evaluateCombinedPrompts.includes("pop")) {
-                structuralFilterMatrix = "contrast(1.40) brightness(0.98) saturate(1.15)";
-            } else if (evaluateCombinedPrompts.includes("bright") || evaluateCombinedPrompts.includes("light")) {
-                structuralFilterMatrix = "contrast(1.15) brightness(1.18)";
+            if (checkStrings.includes("sharpen") || checkStrings.includes("pop") || checkStrings.includes("dark")) {
+                matrixFilter = "contrast(1.42) brightness(0.98) saturate(1.15)";
+            } else if (checkStrings.includes("bright") || checkStrings.includes("light")) {
+                matrixFilter = "contrast(1.12) brightness(1.16)";
             }
             
-            context2D.filter = structuralFilterMatrix;
-            context2D.drawImage(imageFrame, 0, 0);
-            
-            processingCanvas.toBlob((compiledBlobChunk) => {
-                if (compiledBlobChunk) resolve(compiledBlobChunk);
-                else reject(new Error("Canvas compilation tracking failure"));
-            }, 'image/png');
+            ctx.filter = matrixFilter;
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Canvas fault")), 'image/png');
         };
-        imageFrame.onerror = () => reject(new Error("Image data translation failure"));
+        img.onerror = () => reject(new Error("Decode fault"));
     });
 }
 
 function clearActiveErrors() { errorCard.classList.add('hidden'); }
-function toggleLoader(show, labelText = "") {
-    if (show) { statusCard.classList.remove('hidden'); statusText.innerText = labelText; }
+function toggleLoader(show, text = "") {
+    if (show) { statusCard.classList.remove('hidden'); statusText.innerText = text; }
     else { statusCard.classList.add('hidden'); }
 }
-function setDownloadButton(active, executionCallback = null) {
-    if (active) { downloadBtn.classList.remove('disabled'); downloadBtn.onclick = executionCallback; }
+function setDownloadButton(active, cb = null) {
+    if (active) { downloadBtn.classList.remove('disabled'); downloadBtn.onclick = cb; }
     else { downloadBtn.classList.add('disabled'); downloadBtn.onclick = null; }
 }
-function showCrashCard(badge, title, bodyMessage, logs) {
-    errorBadge.innerText = badge; errorTitle.innerText = title; errorDesc.innerText = bodyMessage; errorTrace.innerText = logs;
+function showCrashCard(badge, title, desc, debug) {
+    errorBadge.innerText = badge; errorTitle.innerText = title; errorDesc.innerText = desc; errorTrace.innerText = debug;
     errorCard.classList.remove('hidden'); errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
