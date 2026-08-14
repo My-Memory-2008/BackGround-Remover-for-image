@@ -238,147 +238,210 @@
 
 
 
-
 import { removeBackground } from "https://jsdelivr.net";
 import { pipeline } from "https://jsdelivr.net";
 
-// Node target lookups
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
+// Node target lookups - Section 1 (Vision Optimizer)
+const dropZoneVision = document.getElementById('drop-zone-vision');
+const fileInputVision = document.getElementById('file-input-vision');
 const promptInput = document.getElementById('prompt-input');
 const analyzeBtn = document.getElementById('analyze-btn');
-const processBgBtn = document.getElementById('process-bg-btn');
-
-const statusCard = document.getElementById('status-card');
-const statusText = document.getElementById('status-text');
-const previewSection = document.getElementById('preview-section');
+const visionPreviewArea = document.getElementById('vision-preview-area');
+const enhancedPreviewImage = document.getElementById('enhanced-preview-image');
 const aiThoughtBox = document.getElementById('ai-thought-box');
 
+// Node target lookups - Section 2 (Background Remover)
+const dropZoneRemover = document.getElementById('drop-zone-remover');
+const fileInputRemover = document.getElementById('file-input-remover');
+const processBgBtn = document.getElementById('process-bg-btn');
+const previewSection = document.getElementById('preview-section');
 const inputImage = document.getElementById('input-image');
 const outputImage = document.getElementById('output-image');
 const downloadBtn = document.getElementById('download-btn');
 const imgSpecs = document.getElementById('img-specs');
 
+// Shared UI Components
+const statusCard = document.getElementById('status-card');
+const statusText = document.getElementById('status-text');
 const errorCard = document.getElementById('error-card');
 const errorTitle = document.getElementById('error-title');
 const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
-let localUploadedFileBlob = null;
-let optimizedEnhancedBlob = null;
+// Data State variables
+let visionFileBlobObject = null;
+let removerFileBlobObject = null;
+let enhancedBlobResult = null;
 let visionModelCache = null;
 
-// Activate upload window on click click
-dropZone.addEventListener('click', () => fileInput.click());
+// ==========================================
+// SECTION 1 ACTIONS (Vision Tuning Panel)
+// ==========================================
+dropZoneVision.addEventListener('click', () => fileInputVision.click());
 
-fileInput.addEventListener('change', (e) => {
+fileInputVision.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
-        localUploadedFileBlob = e.target.files[0];
+        visionFileBlobObject = e.target.files[0];
         analyzeBtn.classList.remove('disabled');
-        dropZone.style.borderColor = "var(--success-green)";
+        dropZoneVision.style.borderColor = "var(--success-green)";
         errorCard.classList.add('hidden');
     }
 });
 
-// Drag Over Event Controls
-['dragenter', 'dragover'].forEach(name => {
-    dropZone.addEventListener(name, (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = "var(--accent-purple)";
-    }, false);
-});
-['dragleave', 'drop'].forEach(name => {
-    dropZone.addEventListener(name, (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = "var(--border-color)";
-    }, false);
-});
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        localUploadedFileBlob = e.dataTransfer.files[0];
-        analyzeBtn.classList.remove('disabled');
-        dropZone.style.borderColor = "var(--success-green)";
-    }
+// Drag and drop for Section 1
+setupDragAndDropEvents(dropZoneVision, (files) => {
+    visionFileBlobObject = files[0];
+    analyzeBtn.classList.remove('disabled');
+    dropZoneVision.style.borderColor = "var(--success-green)";
 });
 
-// STAGE 1: AI Vision Model Analysis and Automated Canvas Fine-Tuning
+// Run Vision Optimization Execution Script Loop
 analyzeBtn.addEventListener('click', async () => {
-    if (!localUploadedFileBlob) return;
+    if (!visionFileBlobObject) return;
     
     errorCard.classList.add('hidden');
-    toggleLoader(true, "Downloading/Waking localized vision model weights...");
+    toggleLoader(true, "Loading local vision model into browser memory space...");
     
     try {
-        // Initialize HuggingFace Vision Processor model locally inside the browser thread
         if (!visionModelCache) {
             visionModelCache = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
         }
         
-        toggleLoader(true, "AI reading composition elements & calculating edge metrics...");
-        const temporaryBlobUrl = URL.createObjectURL(localUploadedFileBlob);
+        toggleLoader(true, "AI parsing lighting values and checking feature definition...");
+        const imageURL = URL.createObjectURL(visionFileBlobObject);
         
-        // Model parses the scene layout vectors
-        const visionAnalysisOutput = await visionModelCache(temporaryBlobUrl);
-        const descriptionText = visionAnalysisOutput[0]?.generated_text || "unidentifiable layout contours";
+        const visionAnalysisOutput = await visionModelCache(imageURL);
+        const descriptionText = visionAnalysisOutput?.[0]?.generated_text || "unidentifiable visual layers";
         
-        toggleLoader(true, "Calibrating contrast and exposure profiles dynamically...");
+        toggleLoader(true, "Compiling balance filters and rendering adjustments...");
+        enhancedBlobResult = await applyImageProcessingPipeline(visionFileBlobObject, descriptionText, promptInput.value.trim());
         
-        // Execute canvas modification based on structural analysis and user directives
-        optimizedEnhancedBlob = await applyImageProcessingPipeline(localUploadedFileBlob, descriptionText, promptInput.value.trim());
+        // Show Vision Output block
+        visionPreviewArea.classList.remove('hidden');
+        enhancedPreviewImage.src = URL.createObjectURL(enhancedBlobResult);
+        aiThoughtBox.innerHTML = `<strong>AI Diagnosis:</strong> Identified "${descriptionText}". Adjusted separation ratios & contrast dynamically. <em>This optimized output has been auto-queued to Section 2 below!</em>`;
         
-        // Update Viewport elements
-        previewSection.classList.remove('hidden');
-        inputImage.src = URL.createObjectURL(optimizedEnhancedBlob);
-        outputImage.src = "";
-        setDownloadButton(false);
+        // AUTO-FORWARD OUTPUT: Send this tuned version straight to Section 2's holding bay
+        removerFileBlobObject = enhancedBlobResult;
+        processBgBtn.classList.remove('disabled');
+        dropZoneRemover.style.borderColor = "var(--accent-purple)";
         
-        aiThoughtBox.innerHTML = `<strong>AI Analysis:</strong> Identified "${descriptionText}". Adjusted edge sharpness and contrast ratios to isolate background shapes effectively.`;
         toggleLoader(false);
-        
     } catch (fault) {
-        showCrashCard("Vision Analysis Failure", "Model Execution Fault", "The browser failed to execute structural semantic feature tuning maps.", fault.message);
+        showCrashCard("Vision Fault", "Analysis Loop Interrupted", "The vision module ran into an initialization context error.", fault.message);
         toggleLoader(false);
     }
 });
+// ==========================================
+// SECTION 2 ACTIONS (Background Eraser)
+// ==========================================
+dropZoneRemover.addEventListener('click', () => fileInputRemover.click());
 
-// STAGE 2: Core Background Segmentation Model Trigger Execution
+fileInputRemover.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+        removerFileBlobObject = e.target.files[0];
+        processBgBtn.classList.remove('disabled');
+        dropZoneRemover.style.borderColor = "var(--success-green)";
+        errorCard.classList.add('hidden');
+    }
+});
+
+// Drag and drop for Section 2
+setupDragAndDropEvents(dropZoneRemover, (files) => {
+    removerFileBlobObject = files[0];
+    processBgBtn.classList.remove('disabled');
+    dropZoneRemover.style.borderColor = "var(--success-green)";
+});
+
+// Main Background Stripping Action Execution
 processBgBtn.addEventListener('click', async () => {
-    const targetPayload = optimizedEnhancedBlob || localUploadedFileBlob;
-    if (!targetPayload) return;
+    if (!removerFileBlobObject) return;
     
-    toggleLoader(true, "Executing segmentation mask algorithm...");
+    errorCard.classList.add('hidden');
+    toggleLoader(true, "AI evaluating subject masks (Processing completely locally)...");
+    
     try {
-        const maskOutputBlob = await removeBackground(targetPayload, {
+        // Render source view frames
+        previewSection.classList.remove('hidden');
+        inputImage.src = URL.createObjectURL(removerFileBlobObject);
+        outputImage.src = "";
+        outputImage.classList.add('opacity-dim');
+        setDownloadButton(false);
+
+        const transparentOutputBlob = await removeBackground(removerFileBlobObject, {
             progress: (instance, current, total) => {
                 const percent = Math.round((current / total) * 100);
-                toggleLoader(true, `Isolating background elements... (${isNaN(percent) ? 0 : percent}%)`);
+                toggleLoader(true, `Extracting core subject vectors... (${isNaN(percent) ? 0 : percent}%)`);
             }
         });
         
-        const transparentOutputUrl = URL.createObjectURL(maskOutputBlob);
-        outputImage.src = transparentOutputUrl;
+        const explicitResultUrl = URL.createObjectURL(transparentOutputBlob);
+        outputImage.src = explicitResultUrl;
+        outputImage.classList.remove('opacity-dim');
         
         setDownloadButton(true, () => {
-            const linkNode = document.createElement('a');
-            linkNode.href = transparentOutputUrl;
-            linkNode.download = `clearcut_pro_output.png`;
-            linkNode.click();
+            const downloadNode = document.createElement('a');
+            downloadNode.href = explicitResultUrl;
+            downloadNode.download = `clearcut_pipeline_asset.png`;
+            downloadNode.click();
         });
         
         toggleLoader(false);
     } catch (aiError) {
-        showCrashCard("Neural Network Exception", "ONNX Layer Processing Cutout Error", "The local background processor exceeded available memory boundaries.", aiError.message);
+        showCrashCard("Neural Network Exception", "ONNX Execution Space Overflow", "The background remover script encountered an execution limit.", aiError.message);
         toggleLoader(false);
     }
 });
 
-// Canvas Multi-Channel Image Operations Function
-function applyImageProcessingPipeline(sourceBlob, aiAnalysisText, userDirectiveText) {
+// Shared Clipboard paste hook listener
+window.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let item of items) {
+        if (item.type.indexOf("image") !== -1) {
+            clearActiveErrors();
+            const binaryFile = item.getAsFile();
+            // Paste populates both holding states for convenience
+            visionFileBlobObject = binaryFile;
+            removerFileBlobObject = binaryFile;
+            analyzeBtn.classList.remove('disabled');
+            processBgBtn.classList.remove('disabled');
+            dropZoneVision.style.borderColor = "var(--success-green)";
+            dropZoneRemover.style.borderColor = "var(--success-green)";
+            break;
+        }
+    }
+});
+
+// Helper setup method for parsing layout drops cleanly
+function setupDragAndDropEvents(elementNode, customCallback) {
+    ['dragenter', 'dragover'].forEach(name => {
+        elementNode.addEventListener(name, (e) => {
+            e.preventDefault();
+            elementNode.style.borderColor = "var(--accent-purple)";
+        }, false);
+    });
+    ['dragleave', 'drop'].forEach(name => {
+        elementNode.addEventListener(name, (e) => {
+            e.preventDefault();
+            elementNode.style.borderColor = "var(--border-color)";
+        }, false);
+    });
+    elementNode.addEventListener('drop', (e) => {
+        e.preventDefault();
+        clearActiveErrors();
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            customCallback(e.dataTransfer.files);
+        }
+    });
+}
+
+// Canvas Tuning Operations Engine
+function applyImageProcessingPipeline(blobData, modelTags, userPrompt) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.src = URL.createObjectURL(sourceBlob);
+        img.src = URL.createObjectURL(blobData);
         img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.width;
@@ -386,57 +449,38 @@ function applyImageProcessingPipeline(sourceBlob, aiAnalysisText, userDirectiveT
             imgSpecs.innerText = `${img.width} × ${img.height}`;
             
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
+            let canvasFilterMatrix = "contrast(1.25) brightness(1.05) saturate(1.10)";
             
-            // Core canvas filter mutations matrix rules
-            let filterSettings = "contrast(1.25) brightness(1.05) saturate(1.10)";
-            
-            // Scan user prompt context flags to adjust filter curves dynamically
-            const combinedString = (aiAnalysisText + " " + userDirectiveText).toLowerCase();
-            if (combinedString.includes("sharpen") || combinedString.includes("dark") || combinedString.includes("pop")) {
-                filterSettings = "contrast(1.45) brightness(0.98) saturate(1.15) saturate(1.10)";
+            const combinedString = (modelTags + " " + userPrompt).toLowerCase();
+            if (combinedString.includes("sharpen") || combinedString.includes("pop") || combinedString.includes("dark")) {
+                canvasFilterMatrix = "contrast(1.40) brightness(0.98) saturate(1.15)";
             } else if (combinedString.includes("bright") || combinedString.includes("light")) {
-                filterSettings = "contrast(1.15) brightness(1.15)";
-            } else if (combinedString.includes("soft") || combinedString.includes("blur")) {
-                filterSettings = "contrast(1.10) saturate(1.20)";
+                canvasFilterMatrix = "contrast(1.15) brightness(1.18)";
             }
             
-            ctx.filter = filterSettings;
-            ctx.drawImage(img, 0, 0); // Redraw with hardware filters active
+            ctx.filter = canvasFilterMatrix;
+            ctx.drawImage(img, 0, 0);
             
-            canvas.toBlob((resultBlob) => {
-                if (resultBlob) resolve(resultBlob);
-                else reject(new Error("Canvas serialization failed"));
+            canvas.toBlob((finishedBlob) => {
+                if (finishedBlob) resolve(finishedBlob);
+                else reject(new Error("Canvas serialization breakdown"));
             }, 'image/png');
         };
-        img.onerror = () => reject(new Error("Image decompression breakdown"));
+        img.onerror = () => reject(new Error("Image normalization tracking failure"));
     });
 }
 
+function clearActiveErrors() { errorCard.classList.add('hidden'); }
 function toggleLoader(show, text = "") {
-    if (show) {
-        statusCard.classList.remove('hidden');
-        statusText.innerText = text;
-    } else {
-        statusCard.classList.add('hidden');
-    }
+    if (show) { statusCard.classList.remove('hidden'); statusText.innerText = text; }
+    else { statusCard.classList.add('hidden'); }
 }
-
 function setDownloadButton(active, cb = null) {
-    if (active) {
-        downloadBtn.classList.remove('disabled');
-        downloadBtn.onclick = cb;
-    } else {
-        downloadBtn.classList.add('disabled');
-        downloadBtn.onclick = null;
-    }
+    if (active) { downloadBtn.classList.remove('disabled'); downloadBtn.onclick = cb; }
+    else { downloadBtn.classList.add('disabled'); downloadBtn.onclick = null; }
+}
+function showCrashCard(badge, title, desc, debugLog) {
+    errorBadge.innerText = badge; errorTitle.innerText = title; errorDesc.innerText = desc; errorTrace.innerText = debugLog;
+    errorCard.classList.remove('hidden'); errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function showCrashCard(badge, title, desc, debugLog) {
-    errorBadge.innerText = badge;
-    errorTitle.innerText = title;
-    errorDesc.innerText = desc;
-    errorTrace.innerText = debugLog;
-    errorCard.classList.remove('hidden');
-    errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
