@@ -383,6 +383,7 @@ footer {
 
 
 
+
 :root {
     --bg-main: #020617;
     --bg-card: #0f172a;
@@ -474,7 +475,7 @@ main {
     padding: 24px;
     display: flex;
     flex-direction: column;
-    margin-bottom: 12px;
+    align-items: center;
 }
 
 .drop-zone {
@@ -485,6 +486,7 @@ main {
     background-color: rgba(2, 6, 23, 0.3);
     cursor: pointer;
     transition: all 0.2s ease;
+    width: 100%;
 }
 
 .drop-zone:hover { border-color: var(--accent-purple); background-color: rgba(2, 6, 23, 0.6); }
@@ -492,14 +494,14 @@ main {
 .drop-text-primary span { color: var(--accent-purple); }
 .drop-text-secondary { font-size: 0.75rem; color: var(--text-muted); }
 
-.inputs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+.inputs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; width: 100%; }
 .url-box { display: flex; background-color: var(--bg-main); border: 1px solid var(--border-color); border-radius: 10px; padding: 4px; flex: 1; }
 .url-box input { width: 100%; background: transparent; border: none; outline: none; padding: 8px 12px; color: var(--text-main); font-size: 0.8rem; }
 .url-box button { background-color: var(--bg-card); border: 1px solid var(--border-color); color: #ffffff; border-radius: 6px; padding: 6px 16px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 .hint-box { display: flex; align-items: center; justify-content: center; background-color: rgba(30, 41, 59, 0.2); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 10px; font-size: 0.75rem; color: var(--text-muted); padding: 10px; }
 .hint-box kbd { background-color: var(--bg-card); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 4px; margin: 0 4px; font-size: 0.7rem; color: var(--text-main); }
 
-.status-badge { background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 12px 20px; display: flex; align-items: center; gap: 12px; width: 100%; max-width: 450px; }
+.status-badge { background-color: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 12px 20px; display: flex; align-items: center; gap: 12px; width: 100%; max-width: 450px; margin-top: 16px; }
 .status-text { font-size: 0.8rem; font-weight: 600; color: #e9d5ff; }
 
 .preview-grid { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
@@ -509,7 +511,7 @@ main {
 .preview-title.accent { color: var(--accent-purple); }
 .preview-spec { font-family: monospace; font-size: 0.65rem; background-color: var(--bg-card); padding: 2px 6px; border-radius: 4px; color: var(--text-muted); }
 
-.image-viewport { background-color: #020617; border-radius: 10px; height: 280px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(0,0,0,0.5); }
+.image-viewport { background-color: #020617; border-radius: 10px; height: 280px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(0,0,0,0.5); width: 100%; }
 .image-viewport.checkered { background-image: linear-gradient(45deg, #1e293b 25%, transparent 25%), linear-gradient(-45deg, #1e293b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1e293b 75%), linear-gradient(-45deg, transparent 75%, #1e293b 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-color: #0f172a; }
 .image-viewport img { max-width: 100%; max-height: 100%; object-fit: contain; padding: 8px; }
 
@@ -522,4 +524,4 @@ main {
 .download-btn { width: 100%; background: linear-gradient(to right, var(--accent-purple), var(--accent-pink)); color: #ffffff; font-weight: 700; font-size: 0.8rem; border: none; border-radius: 12px; padding: 12px; cursor: pointer; text-align: center; text-decoration: none; display: block; }
 .disabled { opacity: 0.4; pointer-events: none; }
 .hidden { display: none !important; }
-footer { border-top: 1px solid var(--border-color); background-color: var(--bg-main); padding: 16px; text-align: center; font-size: 0.7rem; color: var(--text-muted); margin-top: auto; }
+footer { border-top: 1px solid var(--border-color); background-color: var(--bg-main); padding: 16px; text-align: center; font-size: 0.7rem; color: var(--text-muted); margin-top: auto; width: 100%; }
