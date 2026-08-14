@@ -242,7 +242,7 @@
 import { removeBackground } from "https://jsdelivr.net";
 import { pipeline } from "https://jsdelivr.net";
 
-// Node target lookups matched perfectly across both pages
+// Unified Node Target Mapping Across Layout Frameworks
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const urlInput = document.getElementById('url-input');
@@ -266,35 +266,34 @@ const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
-// Model storage cash structures
 let visionModelCache = null;
-let currentTargetFileObject = null;
+let currentActiveFileObject = null;
 
-// Activate file upload browsing window on click
+// Core Trigger Event: Click drop box to trigger browse dialogue fields
 if (dropZone) dropZone.addEventListener('click', () => fileInput.click());
 
-// FIXED IMAGE PIPELINE: Explicitly unpack target files index zero [0] directly
+// UNPACK ENGINE CORE: Instantly grab index zero out of structural FileLists
 if (fileInput) {
     fileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
             clearActiveErrors();
-            currentTargetFileObject = e.target.files[0]; // Extracted uncorrupted file item
-            handleLoadedImageObject(currentTargetFileObject);
+            currentActiveFileObject = e.target.files[0]; // FIXED: Extract singular File object
+            evaluateIncomingAsset(currentActiveFileObject);
         }
     });
 }
 
-// Drag and drop event handlers
+// Drag and drop event tracking configurations
 if (dropZone) {
-    ['dragenter', 'dragover'].forEach(name => {
-        dropZone.addEventListener(name, (e) => {
+    ['dragenter', 'dragover'].forEach(n => {
+        dropZone.addEventListener(n, (e) => {
             e.preventDefault();
             dropZone.style.borderColor = "var(--accent-purple)";
             dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.6)";
         }, false);
     });
-    ['dragleave', 'drop'].forEach(name => {
-        dropZone.addEventListener(name, (e) => {
+    ['dragleave', 'drop'].forEach(n => {
+        dropZone.addEventListener(n, (e) => {
             e.preventDefault();
             dropZone.style.borderColor = "var(--border-color)";
             dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.3)";
@@ -304,189 +303,221 @@ if (dropZone) {
         e.preventDefault();
         clearActiveErrors();
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            currentTargetFileObject = e.dataTransfer.files[0]; // Extracted uncorrupted file item
-            handleLoadedImageObject(currentTargetFileObject);
+            currentActiveFileObject = e.dataTransfer.files[0]; // FIXED: Extract singular File object
+            evaluateIncomingAsset(currentActiveFileObject);
         }
     });
 }
 
-// Clipboard instant paste hooks
+// Global Clipboard Paste Handler
 window.addEventListener('paste', async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     for (let item of items) {
         if (item.type.indexOf("image") !== -1) {
             clearActiveErrors();
-            currentTargetFileObject = item.getAsFile();
-            handleLoadedImageObject(currentTargetFileObject);
+            currentActiveFileObject = item.getAsFile();
+            evaluateIncomingAsset(currentActiveFileObject);
             break;
         }
     }
 });
 
-// Fetch images from web addresses
+// URL Image Downloader Input Handler
 if (urlBtn) {
     urlBtn.addEventListener('click', async () => {
-        const rawUrl = urlInput.value.trim();
-        if (!rawUrl) return;
+        const url = urlInput.value.trim();
+        if (!url) return;
         clearActiveErrors();
-        toggleLoader(true, "Downloading image from URL...");
+        toggleLoader(true, "Downloading image target stream from address URL...");
         try {
-            const response = await fetch(rawUrl);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            currentTargetFileObject = await response.blob();
-            handleLoadedImageObject(currentTargetFileObject);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            currentActiveFileObject = await res.blob();
+            evaluateIncomingAsset(currentActiveFileObject);
             toggleLoader(false);
         } catch (err) {
-            showCrashCard("Fetch Blocked", "CORS Network Failure", "Could not fetch image due to cross-origin server safety protocols.", err.message);
+            showCrashCard("Fetch Blocked", "CORS Network Block Failure", "Website server blocks external programmatic file downloads.", err.message);
             toggleLoader(false);
         }
     });
 }
 
-// Route actions based on active pathname parameters
-function handleLoadedImageObject(fileData) {
+// Determine tool routing parameters
+function evaluateIncomingAsset(fileData) {
     if (!fileData) return;
-    
-    // Safety check type configuration
     if (fileData.type && !fileData.type.startsWith('image/')) {
-        showCrashCard("Format Denied", "Invalid File Signature", "Please process image format extensions only.", "");
+        showCrashCard("Format Rejected", "Invalid File Extension", "Please choose standard graphical formats (PNG, JPG, WEBP).", "");
         return;
     }
 
-    const path = window.location.pathname;
-    if (path.includes("vision.html")) {
-        // Unlock action button on vision layout page
+    const currentPath = window.location.pathname;
+    if (currentPath.includes("vision.html")) {
+        // Unlock action button on vision tuning screen layouts
         if (analyzeBtn) analyzeBtn.classList.remove('disabled');
         if (dropZone) dropZone.style.borderColor = "var(--success-green)";
     } else {
-        // Execute background erasure routine directly on index home page
-        executeBackgroundEraserPipeline(fileData);
+        // Run background erasure steps directly on core index frame
+        runBackgroundEraserPipeline(fileData);
     }
 }
 
 // ==========================================
-// ROUTINE A: THE BACKGROUND REMOVER (INDEX)
+// WORKFLOW A: BACKGROUND REMOVAL (INDEX.HTML)
 // ==========================================
-async function executeBackgroundEraserPipeline(blobSource) {
-    toggleLoader(true, "AI loading model parameters into local memory spaces...");
+async function runBackgroundEraserPipeline(blobSource) {
+    toggleLoader(true, "AI loading network layers into browser memory slot lines...");
     try {
         previewSection.classList.remove('hidden');
         inputImage.src = URL.createObjectURL(blobSource);
         outputImage.src = "";
         setDownloadButton(false);
 
-        const transparentBlob = await removeBackground(blobSource, {
+        const transparentOutputBlob = await removeBackground(blobSource, {
             progress: (instance, current, total) => {
-                const percentage = Math.round((current / total) * 100);
-                toggleLoader(true, `Stripping background boundaries... (${isNaN(percentage) ? 0 : percentage}%)`);
+                const percent = Math.round((current / total) * 100);
+                toggleLoader(true, `Stripping background elements... (${isNaN(percent) ? 0 : percent}%)`);
             }
         });
 
-        const maskURL = URL.createObjectURL(transparentBlob);
-        outputImage.src = maskURL;
+        const explicitMaskUrl = URL.createObjectURL(transparentOutputBlob);
+        outputImage.src = explicitMaskUrl;
         
         setDownloadButton(true, () => {
-            const anchor = document.createElement('a');
-            anchor.href = maskURL;
-            anchor.download = `clearcut_${blobSource.name || 'output.png'}`;
-            anchor.click();
+            const downloadLink = document.createElement('a');
+            downloadLink.href = explicitMaskUrl;
+            downloadLink.download = `clearcut_${blobSource.name || 'asset.png'}`;
+            downloadLink.click();
         });
         toggleLoader(false);
-    } catch (aiErr) {
-        showCrashCard("ONNX Failure", "Execution Layer Memory Overflow", "The processor tab hit a resource boundary limitation.", aiErr.message);
+    } catch (aiError) {
+        showCrashCard("ONNX Processing Error", "Compute Out Of Memory Exception", "Browser engine tab ran out of available memory boundaries.", aiError.message);
         toggleLoader(false);
     }
 }
 
 // ==========================================
-// ROUTINE B: THE VISION OPTIMIZER (VISION)
+// WORKFLOW B: AI VISION ENHANCEMENT (VISION.HTML)
 // ==========================================
 if (analyzeBtn) {
     analyzeBtn.addEventListener('click', async () => {
-        if (!currentTargetFileObject) return;
-        toggleLoader(true, "Waking on-device AI vision model vectors...");
-        
+        if (!currentActiveFileObject) return;
+        toggleLoader(true, "Downloading/Waking localized vision model weights...");
         try {
             if (!visionModelCache) {
                 visionModelCache = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
             }
-            toggleLoader(true, "AI assessing image illumination curves and textures...");
-            const tempUrl = URL.createObjectURL(currentTargetFileObject);
+            toggleLoader(true, "AI scanning image composition rules and depth coordinates...");
+            const tempURL = URL.createObjectURL(currentActiveFileObject);
             
-            const analysis = await visionModelCache(tempUrl);
-            const tagDescription = analysis?.generated_text || "unidentified image visual matrices";
+            const results = await visionModelCache(tempURL);
+            const generatedTags = results?.[0]?.generated_text || "unidentifiable background layer structures";
             
-            toggleLoader(true, "Applying color-space enhancements onto matrix canvas...");
-            const processedBlob = await applyCanvasImageProcessing(currentTargetFileObject, tagDescription, promptInput.value.trim());
+            toggleLoader(true, "Processing contrast modifications onto image data grids...");
+            const refinedOutputBlob = await applyImageContrastTuningCanvas(currentActiveFileObject, generatedTags, promptInput.value.trim());
             
             previewSection.classList.remove('hidden');
-            inputImage.src = URL.createObjectURL(processedBlob);
-            aiThoughtBox.innerHTML = `<strong>AI Diagnosis:</strong> Identified "${tagDescription}". Pre-tuned contrast maps to optimize image boundaries cleanly!`;
+            inputImage.src = URL.createObjectURL(refinedOutputBlob);
+            aiThoughtBox.innerHTML = `<strong>AI Analysis:</strong> Identified "${generatedTags}". Enhanced edge definitions and brightness profiles safely inside canvas grids.`;
             
             setDownloadButton(true, () => {
-                const anchor = document.createElement('a');
-                anchor.href = inputImage.src;
-                anchor.download = `optimized_${currentTargetFileObject.name || 'asset.png'}`;
-                anchor.click();
+                const downloadLink = document.createElement('a');
+                downloadLink.href = inputImage.src;
+                downloadLink.download = `optimized_${currentActiveFileObject.name || 'asset.png'}`;
+                downloadLink.click();
             });
             toggleLoader(false);
         } catch (visionErr) {
-            showCrashCard("Vision Fault", "Transformers Initialization Exception", "On-device processing model encountered an error.", visionErr.message);
+            showCrashCard("Transformers Failure", "Model Computation Exception", "Localized script model failed to trace parameters.", visionErr.message);
             toggleLoader(false);
         }
     });
 }
 
-function applyCanvasImageProcessing(blob, aiTags, userPrompt) {
+function applyImageContrastTuningCanvas(blob, aiTags, userPrompt) {
     return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.src = URL.createObjectURL(blob);
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            if (imgSpecs) imgSpecs.innerText = `${img.width} × ${img.height}`;
+        const renderImage = new Image();
+        renderImage.src = URL.createObjectURL(blob);
+        renderImage.onload = () => {
+            const editingCanvas = document.createElement('canvas');
+            editingCanvas.width = renderImage.width;
+            editingCanvas.height = renderImage.height;
+            if (imgSpecs) imgSpecs.innerText = `${renderImage.width} × ${renderImage.height}`;
             
-            const ctx = canvas.getContext('2d');
-            let balanceFilters = "contrast(1.25) brightness(1.04) saturate(1.10)";
-            const checkStrings = (aiTags + " " + userPrompt).toLowerCase();
+            const context = editingCanvas.getContext('2d');
+            let filteringParams = "contrast(1.25) brightness(1.04) saturate(1.10)";
+            const parsedStrings = (aiTags + " " + userPrompt).toLowerCase();
             
-            if (checkStrings.includes("sharpen") || checkStrings.includes("pop") || checkStrings.includes("dark")) {
-                balanceFilters = "contrast(1.42) brightness(0.98) saturate(1.15)";
-            } else if (checkStrings.includes("bright") || checkStrings.includes("light")) {
-                balanceFilters = "contrast(1.12) brightness(1.16)";
+            if (parsedStrings.includes("sharpen") || parsedStrings.includes("pop") || parsedStrings.includes("dark")) {
+                filteringParams = "contrast(1.45) brightness(0.96) saturate(1.15)";
+            } else if (parsedStrings.includes("bright") || parsedStrings.includes("light")) {
+                filteringParams = "contrast(1.10) brightness(1.18)";
             }
             
-            ctx.filter = balanceFilters;
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Canvas fault")), 'image/png');
+            context.filter = filteringParams;
+            context.drawImage(renderImage, 0, 0);
+            editingCanvas.toBlob((finishedBlob) => finishedBlob ? resolve(finishedBlob) : reject(new Error("Canvas failure")), 'image/png');
         };
-        img.onerror = () => reject(new Error("Decode fault"));
+        renderImage.onerror = () => reject(new Error("Image translation failure"));
     });
 }
 
-function clearActiveErrors() { errorCard.classList.add('hidden'); }
-function toggleLoader(show, label = "") {
-    if (show) { statusCard.classList.remove('hidden'); statusText.innerText = label; }
-    else { statusCard.classList.add('hidden'); }
-}
-function setDownloadButton(active, cb = null) {
-if (active) 
+function clearActiveErrors() 
 {
-    downloadBtn.classList.remove('disabled');
-    downloadBtn.onclick = cb; 
-}else { 
-    downloadBtn.classList.add('disabled'); 
-    downloadBtn.onclick = null;
+    errorCard.classList.add('hidden');
 }
+function toggleLoader(show, textContent = "") 
+{
+    if (show) 
+    { statusCard.classList.remove('hidden'); 
+     statusText.innerText = textContent; 
+    }
+    else { statusCard.classList.add('hidden'); 
+         }
 }
-function showCrashCard(badge, title, desc, log)
+function setDownloadButton(active, callback = null) 
+{
+    if (active) 
+    { downloadBtn.classList.remove('disabled');
+     downloadBtn.onclick = callback; 
+    }
+    else 
+    { downloadBtn.classList.add('disabled'); 
+     downloadBtn.onclick = null; 
+    }
+}
+function showCrashCard(badge, title, message, details) 
 {
     errorBadge.innerText = badge; 
     errorTitle.innerText = title; 
-    errorDesc.innerText = desc;
-    errorTrace.innerText = log;
+    errorDesc.innerText = message; 
+    errorTrace.innerText = details;
     errorCard.classList.remove('hidden');
     errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function clearActiveErrors() 
+{ errorCard.classList.add('hidden');
+}
+function toggleLoader(show, textContent = "") 
+{
+    if (show) 
+    { statusCard.classList.remove('hidden'); 
+     statusText.innerText = textContent; 
+    }
+    else { statusCard.classList.add('hidden');
+         }}
+function setDownloadButton(active, callback = null) 
+{if (active)
+{ downloadBtn.classList.remove('disabled'); 
+ downloadBtn.onclick = callback; }
+else { downloadBtn.classList.add('disabled'); 
+      downloadBtn.onclick = null; 
+     }}
+function showCrashCard(badge, title, message, details)
+{errorBadge.innerText = badge; 
+ errorTitle.innerText = title; 
+ errorDesc.innerText = message;
+ errorTrace.innerText = details;
+ errorCard.classList.remove('hidden'); 
+ errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
