@@ -243,245 +243,208 @@
 import { removeBackground } from "https://jsdelivr.net";
 import { pipeline } from "https://jsdelivr.net";
 
-// Node target lookups - Section 1 (Vision Optimizer)
-const dropZoneVision = document.getElementById('drop-zone-vision');
-const fileInputVision = document.getElementById('file-input-vision');
+// Connect to your exact DOM element structures
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const urlInput = document.getElementById('url-input');
+const urlBtn = document.getElementById('url-btn');
 const promptInput = document.getElementById('prompt-input');
-const analyzeBtn = document.getElementById('analyze-btn');
-const visionPreviewArea = document.getElementById('vision-preview-area');
-const enhancedPreviewImage = document.getElementById('enhanced-preview-image');
+
+const statusCard = document.getElementById('status-card');
+const statusText = document.getElementById('status-text');
+const previewSection = document.getElementById('preview-section');
 const aiThoughtBox = document.getElementById('ai-thought-box');
 
-// Node target lookups - Section 2 (Background Remover)
-const dropZoneRemover = document.getElementById('drop-zone-remover');
-const fileInputRemover = document.getElementById('file-input-remover');
-const processBgBtn = document.getElementById('process-bg-btn');
-const previewSection = document.getElementById('preview-section');
 const inputImage = document.getElementById('input-image');
 const outputImage = document.getElementById('output-image');
 const downloadBtn = document.getElementById('download-btn');
 const imgSpecs = document.getElementById('img-specs');
 
-// Shared UI Components
-const statusCard = document.getElementById('status-card');
-const statusText = document.getElementById('status-text');
 const errorCard = document.getElementById('error-card');
 const errorTitle = document.getElementById('error-title');
 const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
-// Data State variables
-let visionFileBlobObject = null;
-let removerFileBlobObject = null;
-let enhancedBlobResult = null;
+// Model Memory Cache states
 let visionModelCache = null;
 
-// ==========================================
-// SECTION 1 ACTIONS (Vision Tuning Panel)
-// ==========================================
-dropZoneVision.addEventListener('click', () => fileInputVision.click());
+// Activate upload window on clicking your working container
+dropZone.addEventListener('click', () => fileInput.click());
 
-fileInputVision.addEventListener('change', (e) => {
+// Hand over your selected file using your previous working array extractor logic
+fileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
-        // FIXED: Explicitly target index 0 of files array right away
-        visionFileBlobObject = e.target.files[0];
-        analyzeBtn.classList.remove('disabled');
-        dropZoneVision.style.borderColor = "var(--success-green)";
-        errorCard.classList.add('hidden');
+        clearActiveErrors();
+        processMasterUploadPipeline(e.target.files[0]);
     }
 });
 
-// Drag and drop setup for Section 1
+// Drag and drop controls matched directly to your layout styles
 ['dragenter', 'dragover'].forEach(name => {
-    dropZoneVision.addEventListener(name, (e) => { e.preventDefault(); dropZoneVision.style.borderColor = "var(--accent-purple)"; }, false);
+    dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = "var(--accent-purple)";
+        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.6)";
+    }, false);
 });
 ['dragleave', 'drop'].forEach(name => {
-    dropZoneVision.addEventListener(name, (e) => { e.preventDefault(); dropZoneVision.style.borderColor = "var(--border-color)"; }, false);
+    dropZone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = "var(--border-color)";
+        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.3)";
+    }, false);
 });
-dropZoneVision.addEventListener('drop', (e) => {
+dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
-    errorCard.classList.add('hidden');
+    clearActiveErrors();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        // FIXED: Explicitly extract the first actual File out of data transfer array blocks
-        visionFileBlobObject = e.dataTransfer.files[0];
-        analyzeBtn.classList.remove('disabled');
-        dropZoneVision.style.borderColor = "var(--success-green)";
+        processMasterUploadPipeline(e.dataTransfer.files[0]);
     }
 });
 
-// Run Vision Optimization Execution Script Loop
-analyzeBtn.addEventListener('click', async () => {
-    if (!visionFileBlobObject) return;
-    
-    errorCard.classList.add('hidden');
-    toggleLoader(true, "Waking on-device vision model weights...");
-    
-    try {
-        if (!visionModelCache) {
-            visionModelCache = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
-        }
-        
-        toggleLoader(true, "AI reading composition elements & checking edge metrics...");
-        const imageURL = URL.createObjectURL(visionFileBlobObject);
-        
-        const visionAnalysisOutput = await visionModelCache(imageURL);
-        const descriptionText = visionAnalysisOutput[0]?.generated_text || "unidentifiable visual layers";
-        
-        toggleLoader(true, "Calibrating contrast and exposure profiles dynamically...");
-        enhancedBlobResult = await applyImageProcessingPipeline(visionFileBlobObject, descriptionText, promptInput.value.trim());
-        
-        // Show Vision Output block
-        visionPreviewArea.classList.remove('hidden');
-        enhancedPreviewImage.src = URL.createObjectURL(enhancedBlobResult);
-        aiThoughtBox.innerHTML = `<strong>AI Diagnosis:</strong> Identified "${descriptionText}". Adjusted separation ratios & contrast dynamically. <em>This optimized output has been auto-queued to Section 2 below!</em>`;
-        
-        // AUTO-FORWARD OUTPUT: Send this tuned version straight to Section 2's holding bay
-        removerFileBlobObject = enhancedBlobResult;
-        processBgBtn.classList.remove('disabled');
-        dropZoneRemover.style.borderColor = "var(--accent-purple)";
-        
-        toggleLoader(false);
-    } catch (fault) {
-        showCrashCard("Vision Fault", "Analysis Loop Interrupted", "The vision module ran into an initialization error.", fault.message);
-        toggleLoader(false);
-    }
-});
-// ==========================================
-// SECTION 2 ACTIONS (Background Eraser)
-// ==========================================
-dropZoneRemover.addEventListener('click', () => fileInputRemover.click());
-
-fileInputRemover.addEventListener('change', (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-        // FIXED: Extract index zero single file object out of array list bundle
-        removerFileBlobObject = e.target.files[0];
-        processBgBtn.classList.remove('disabled');
-        dropZoneRemover.style.borderColor = "var(--success-green)";
-        errorCard.classList.add('hidden');
-    }
-});
-
-// Drag and drop setup for Section 2
-['dragenter', 'dragover'].forEach(name => {
-    dropZoneRemover.addEventListener(name, (e) => { e.preventDefault(); dropZoneRemover.style.borderColor = "var(--accent-purple)"; }, false);
-});
-['dragleave', 'drop'].forEach(name => {
-    dropZoneRemover.addEventListener(name, (e) => { e.preventDefault(); dropZoneRemover.style.borderColor = "var(--border-color)"; }, false);
-});
-dropZoneRemover.addEventListener('drop', (e) => {
-    e.preventDefault();
-    errorCard.classList.add('hidden');
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        // FIXED: Extract the first actual File from list array data payload strings
-        removerFileBlobObject = e.dataTransfer.files[0];
-        processBgBtn.classList.remove('disabled');
-        dropZoneRemover.style.borderColor = "var(--success-green)";
-    }
-});
-
-// Main Background Stripping Action Execution
-processBgBtn.addEventListener('click', async () => {
-    if (!removerFileBlobObject) return;
-    
-    errorCard.classList.add('hidden');
-    toggleLoader(true, "AI evaluating subject masks (Processing completely locally)...");
-    
-    try {
-        // Render source view frames
-        previewSection.classList.remove('hidden');
-        inputImage.src = URL.createObjectURL(removerFileBlobObject);
-        outputImage.src = "";
-        outputImage.classList.add('opacity-dim');
-        setDownloadButton(false);
-
-        const transparentOutputBlob = await removeBackground(removerFileBlobObject, {
-            progress: (instance, current, total) => {
-                const percent = Math.round((current / total) * 100);
-                toggleLoader(true, `Extracting core subject vectors... (${isNaN(percent) ? 0 : percent}%)`);
-            }
-        });
-        
-        const explicitResultUrl = URL.createObjectURL(transparentOutputBlob);
-        outputImage.src = explicitResultUrl;
-        outputImage.classList.remove('opacity-dim');
-        
-        setDownloadButton(true, () => {
-            const downloadNode = document.createElement('a');
-            downloadNode.href = explicitResultUrl;
-            downloadNode.download = `clearcut_pipeline_asset.png`;
-            downloadNode.click();
-        });
-        
-        toggleLoader(false);
-    } catch (aiError) {
-        showCrashCard("Neural Network Exception", "ONNX Execution Space Overflow", "The background remover script encountered an execution limit.", aiError.message);
-        toggleLoader(false);
-    }
-});
-
-// Shared Clipboard paste hook listener
+// OS Clipboard Instant Paste Event Handling Hook
 window.addEventListener('paste', async (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let item of items) {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems) return;
+    for (let item of clipItems) {
         if (item.type.indexOf("image") !== -1) {
-            errorCard.classList.add('hidden');
-            const binaryFile = item.getAsFile();
-            // Paste populates both holding states for convenience
-            visionFileBlobObject = binaryFile;
-            removerFileBlobObject = binaryFile;
-            analyzeBtn.classList.remove('disabled');
-            processBgBtn.classList.remove('disabled');
-            dropZoneVision.style.borderColor = "var(--success-green)";
-            dropZoneRemover.style.borderColor = "var(--success-green)";
+            clearActiveErrors();
+            processMasterUploadPipeline(item.getAsFile());
             break;
         }
     }
 });
 
-// Canvas Tuning Operations Engine
-function applyImageProcessingPipeline(blobData, modelTags, userPrompt) {
+// Fetch Remote URL addresses smoothly
+urlBtn.addEventListener('click', async () => {
+    const rawUrl = urlInput.value.trim();
+    if (!rawUrl) return;
+    clearActiveErrors();
+    toggleLoader(true, "Downloading web image file URL stream...");
+    try {
+        const response = await fetch(rawUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const imageBlob = await response.blob();
+        processMasterUploadPipeline(imageBlob);
+    } catch (err) {
+        showCrashCard("URL Blocked", "CORS Restriction Exception", "Could not fetch image. The server hosting it blocks browser script access.", err.message);
+        toggleLoader(false);
+    }
+});
+// ==========================================
+// TWO-STAGE AI PIPELINE COMPUTE OPERATIONS
+// ==========================================
+async function processMasterUploadPipeline(rawFileOrBlob) {
+    if (!rawFileOrBlob) return;
+    
+    // Safety file format verification check
+    if (!rawFileOrBlob.type || !rawFileOrBlob.type.startsWith('image/')) {
+        showCrashCard("Format Denied", "Unsupported Extension File", "Please upload a standardized image format like PNG, JPG, or WEBP.", "");
+        return;
+    }
+
+    toggleLoader(true, "Stage 1: Waking local AI Vision Analysis model...");
+    const temporarySourceUrl = URL.createObjectURL(rawFileOrBlob);
+
+    try {
+        // Initialize HuggingFace Vision Processor model completely inside the browser client thread
+        if (!visionModelCache) {
+            visionModelCache = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
+        }
+        
+        toggleLoader(true, "AI reading composition elements & checking edge contrast parameters...");
+        const visionAnalysisOutput = await visionModelCache(temporarySourceUrl);
+        const classificationText = visionAnalysisOutput?.[0]?.generated_text || "unidentified image scenery contours";
+
+        toggleLoader(true, "Normalizing file pixel curves & enhancing edge details...");
+        
+        // Execute canvas filter modifications dynamically
+        const enhancedBlobPayload = await applyImageProcessingPipeline(rawFileOrBlob, classificationText, promptInput.value.trim());
+        const dynamicEnhancedUrl = URL.createObjectURL(enhancedBlobPayload);
+
+        // Update Viewport frames
+        previewSection.classList.remove('hidden');
+        inputImage.src = dynamicEnhancedUrl;
+        outputImage.src = "";
+        outputImage.classList.add('opacity-dim');
+        setDownloadButton(false);
+        aiThoughtBox.innerHTML = `<strong>AI Analysis:</strong> Found "${classificationText}". Pre-tuned contrast matrix to optimize background removal sharpness!`;
+
+        // STAGE 2: Pass the optimized image straight into the background removal tool instantly
+        toggleLoader(true, "Stage 2: AI calculating background extraction mask contours (Computing locally)...");
+        
+        const clearCutoutBlob = await removeBackground(enhancedBlobPayload, {
+            progress: (instance, done, max) => {
+                const percentageDone = Math.round((done / max) * 100);
+                toggleLoader(true, `Stripping background elements... (${isNaN(percentageDone) ? 0 : percentageDone}%)`);
+            }
+        });
+
+        const cleanMaskObjectURL = URL.createObjectURL(clearCutoutBlob);
+        outputImage.src = cleanMaskObjectURL;
+        outputImage.classList.remove('opacity-dim');
+
+        setDownloadButton(true, () => {
+            const anchor = document.createElement('a');
+            anchor.href = cleanMaskObjectURL;
+            anchor.download = `clearcut_pro_${rawFileOrBlob.name || 'asset.png'}`;
+            anchor.click();
+        });
+
+        toggleLoader(false);
+
+    } catch (pipelineCrash) {
+        showCrashCard("Pipeline Error", "Processing Layer Exception", "An error occurred during image compilation steps.", pipelineCrash.message);
+        toggleLoader(false);
+    }
+}
+
+// Canvas Matrix Image Processing Operations Filter Engine
+function applyImageProcessingPipeline(blobSource, aiClassification, userDirectivePrompt) {
     return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.src = URL.createObjectURL(blobData);
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            imgSpecs.innerText = `${img.width} × ${img.height}`;
+        const imageFrame = new Image();
+        imageFrame.src = URL.createObjectURL(blobSource);
+        imageFrame.onload = () => {
+            const processingCanvas = document.createElement('canvas');
+            processingCanvas.width = imageFrame.width;
+            processingCanvas.height = imageFrame.height;
+            imgSpecs.innerText = `${imageFrame.width} × ${imageFrame.height}`;
             
-            const ctx = canvas.getContext('2d');
-            let canvasFilterMatrix = "contrast(1.25) brightness(1.05) saturate(1.10)";
+            const context2D = processingCanvas.getContext('2d');
+            let structuralFilterMatrix = "contrast(1.20) brightness(1.05) saturate(1.10)";
             
-            const combinedString = (modelTags + " " + userPrompt).toLowerCase();
-            if (combinedString.includes("sharpen") || combinedString.includes("pop") || combinedString.includes("dark")) {
-                canvasFilterMatrix = "contrast(1.40) brightness(0.98) saturate(1.15)";
-            } else if (combinedString.includes("bright") || combinedString.includes("light")) {
-                canvasFilterMatrix = "contrast(1.15) brightness(1.18)";
+            const evaluateCombinedPrompts = (aiClassification + " " + userDirectivePrompt).toLowerCase();
+            
+            // Adjust canvas balance sliders automatically based on vision analysis or prompt tags
+            if (evaluateCombinedPrompts.includes("sharpen") || evaluateCombinedPrompts.includes("dark") || evaluateCombinedPrompts.includes("pop")) {
+                structuralFilterMatrix = "contrast(1.40) brightness(0.98) saturate(1.15)";
+            } else if (evaluateCombinedPrompts.includes("bright") || evaluateCombinedPrompts.includes("light")) {
+                structuralFilterMatrix = "contrast(1.15) brightness(1.18)";
             }
             
-            ctx.filter = canvasFilterMatrix;
-            ctx.drawImage(img, 0, 0);
+            context2D.filter = structuralFilterMatrix;
+            context2D.drawImage(imageFrame, 0, 0);
             
-            canvas.toBlob((finishedBlob) => {
-                if (finishedBlob) resolve(finishedBlob);
-                else reject(new Error("Canvas serialization breakdown"));
+            processingCanvas.toBlob((compiledBlobChunk) => {
+                if (compiledBlobChunk) resolve(compiledBlobChunk);
+                else reject(new Error("Canvas compilation tracking failure"));
             }, 'image/png');
         };
-        img.onerror = () => reject(new Error("Image normalization tracking failure"));
+        imageFrame.onerror = () => reject(new Error("Image data translation failure"));
     });
 }
 
-function toggleLoader(show, text = "") {
-    if (show) { statusCard.classList.remove('hidden'); statusText.innerText = text; }
+function clearActiveErrors() { errorCard.classList.add('hidden'); }
+function toggleLoader(show, labelText = "") {
+    if (show) { statusCard.classList.remove('hidden'); statusText.innerText = labelText; }
     else { statusCard.classList.add('hidden'); }
 }
-function setDownloadButton(active, cb = null) {
-    if (active) { downloadBtn.classList.remove('disabled'); downloadBtn.onclick = cb; }
+function setDownloadButton(active, executionCallback = null) {
+    if (active) { downloadBtn.classList.remove('disabled'); downloadBtn.onclick = executionCallback; }
     else { downloadBtn.classList.add('disabled'); downloadBtn.onclick = null; }
 }
-function showCrashCard(badge, title, desc, debugLog) {
-    errorBadge.innerText = badge; errorTitle.innerText = title; errorDesc.innerText = desc; errorTrace.innerText = debugLog;
+function showCrashCard(badge, title, bodyMessage, logs) {
+    errorBadge.innerText = badge; errorTitle.innerText = title; errorDesc.innerText = bodyMessage; errorTrace.innerText = logs;
     errorCard.classList.remove('hidden'); errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
