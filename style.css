@@ -382,6 +382,7 @@ footer {
 
 
 
+
 :root {
     --bg-main: #020617;
     --bg-card: #0f172a;
@@ -473,6 +474,7 @@ main {
     padding: 24px;
     display: flex;
     flex-direction: column;
+    margin-bottom: 12px;
 }
 
 .drop-zone {
@@ -517,7 +519,7 @@ main {
 .error-desc { font-size: 0.85rem; color: #fde2e2; }
 .error-trace { background-color: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.75rem; color: #f87171; overflow-x: auto; max-h: 100px; white-space: pre; }
 
-.download-btn { width: 100%; background: linear-gradient(to right, var(--accent-purple), var(--accent-pink)); color: #ffffff; font-weight: 700; font-size: 0.8rem; border: none; border-radius: 12px; padding: 12px; cursor: pointer; text-align: center; }
+.download-btn { width: 100%; background: linear-gradient(to right, var(--accent-purple), var(--accent-pink)); color: #ffffff; font-weight: 700; font-size: 0.8rem; border: none; border-radius: 12px; padding: 12px; cursor: pointer; text-align: center; text-decoration: none; display: block; }
 .disabled { opacity: 0.4; pointer-events: none; }
 .hidden { display: none !important; }
 footer { border-top: 1px solid var(--border-color); background-color: var(--bg-main); padding: 16px; text-align: center; font-size: 0.7rem; color: var(--text-muted); margin-top: auto; }
