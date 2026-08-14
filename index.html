@@ -101,29 +101,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClearCut.AI Pro — Multi-Model Creative Toolkit</title>
-    <!-- Link to the clean style layout file -->
+    <title>ClearCut.AI — Free AI Background Remover</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <header>
         <div class="header-container">
-            <div class="logo">ClearCut<span>.AI Pro</span></div>
+            <div class="logo">ClearCut<span>.AI</span></div>
+            <!-- Sleek navigation links to jump between tools easily -->
+            <nav style="display: flex; gap: 12px;">
+                <a href="index.html" style="color: #a855f7; font-weight: 700; font-size: 0.8rem; text-decoration: none; border-bottom: 2px solid #a855f7; padding-bottom: 2px;">Background Remover</a>
+                <a href="vision.html" style="color: #94a3b8; font-weight: 600; font-size: 0.8rem; text-decoration: none;">AI Vision Enhancer</a>
+            </nav>
             <div class="engine-badge">
                 <div class="pulse-dot"></div>
-                Local Multi-Model Workspace
+                Local Web Engine
             </div>
         </div>
     </header>
 
     <main>
         <div class="hero-section">
-            <h1>Advanced AI Creative Engine</h1>
-            <p>100% Free & Serverless. Run on-device Vision Models or use the lightning-fast Background Eraser below.</p>
+            <h1>Remove Backgrounds Instantly</h1>
+            <p>100% Free & Unlimited. Images are processed directly inside your browser window framework without server uploads.</p>
         </div>
 
-        <!-- Global Self-Diagnosis Fault Panel -->
         <div id="error-card" class="error-card hidden">
             <div class="error-header">
                 <div id="error-title" class="error-title">System Fault</div>
@@ -133,60 +136,10 @@
             <div id="error-trace" class="error-trace">No technical logs compiled.</div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SECTION 1: AI VISION FEATURE TUNING & ANALYSIS -->
-        <!-- ========================================== -->
-        <div class="workspace-card" id="vision-card-section">
-            <h2 style="font-size: 1.1rem; color: #a855f7; margin-bottom: 4px; text-align: left;">SECTION 1: AI Vision Analysis & Enhancer</h2>
-            <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 16px; text-align: left;">Have the on-device AI analyze lighting, textures, and composition. Provide an optional directive to focus the adjustments.</p>
-            
-            <!-- Completely independent dropzone for vision section -->
-            <div id="drop-zone-vision" class="drop-zone">
-                <input type="file" id="file-input-vision" accept="image/*" style="display: none !important;">
-                <p class="drop-text-primary">Drag & drop your file here, or <span>browse vision storage</span></p>
-                <p class="drop-text-secondary">Supports PNG, JPG, and WEBP formats</p>
-            </div>
-
-            <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 6px;">
-                <label style="font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-align: left;">Optional AI Vision Directive Prompt:</label>
-                <input type="text" id="prompt-input" placeholder="e.g., 'Make the subject pop out more', 'Sharpen dark edges', 'Boost contrast'..." style="background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 10px; color: #fff; font-size: 0.8rem; outline: none; width: 100%;">
-            </div>
-
-            <button id="analyze-btn" class="download-btn disabled" style="margin-top: 14px; background: linear-gradient(to right, #6b21a8, #a855f7);">Analyze & Optimize Image Features</button>
-
-            <!-- Independent grid results for vision model execution -->
-            <div id="vision-preview-section" class="preview-grid hidden" style="grid-template-columns: 1fr;">
-                <div class="preview-box">
-                    <div class="preview-header">
-                        <div class="preview-title" style="color: #e9d5ff;">AI Enhanced Result</div>
-                        <div id="vision-img-specs" class="preview-spec">0x0</div>
-                    </div>
-                    <div class="image-viewport" style="position: relative;">
-                        <img id="vision-input-image" src="" alt="Vision target source preview">
-                        <div id="ai-thought-box" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.95); padding: 10px; font-size: 0.75rem; color: #cbd5e1; border-top: 1px solid #334155; text-align: left;"></div>
-                    </div>
-                    <button id="send-to-remover-btn" class="download-btn" style="margin-top: 8px; background: #1e1b4b; border: 1px solid #4338ca;">Send This Enhanced Output to Section 2 ↓</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Global Status Progress Indicator Bar -->
-        <div id="status-card" class="status-badge hidden">
-            <div class="pulse-dot" style="background-color: var(--accent-purple); transform: scale(1.2);"></div>
-            <p id="status-text" class="status-text">Loading localized neural network parameters...</p>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- SECTION 2: THE ORIGINAL BACKGROUND REMOVER -->
-        <!-- ========================================== -->
-        <div class="workspace-card" id="remover-card-section">
-            <h2 style="font-size: 1.1rem; color: #ec4899; margin-bottom: 4px; text-align: left;">SECTION 2: Core Background Segmentation Eraser</h2>
-            <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 16px; text-align: left;">Your original standalone background remover. Drop files directly here or receive your optimized image from Section 1.</p>
-
-            <!-- Your exact, previous functional upload configuration -->
+        <div class="workspace-card">
             <div id="drop-zone" class="drop-zone">
                 <input type="file" id="file-input" accept="image/*" style="display: none !important;">
-                <p class="drop-text-primary">Drag & drop your file here, or <span>browse remover storage</span></p>
+                <p class="drop-text-primary">Drag & drop your file here, or <span>browse storage</span></p>
                 <p class="drop-text-secondary">Supports PNG, JPG, and WEBP formats</p>
             </div>
 
@@ -199,37 +152,39 @@
                     Or simply hit <kbd>Ctrl + V</kbd> to paste an image instantly
                 </div>
             </div>
+        </div>
 
-            <button id="process-bg-btn" class="download-btn disabled" style="margin-top: 14px; background: linear-gradient(to right, #be185d, #ec4899);">Execute Background Removal Mask</button>
+        <div id="status-card" class="status-badge hidden">
+            <div class="pulse-dot" style="background-color: var(--accent-purple); transform: scale(1.2);"></div>
+            <p id="status-text" class="status-text">Loading localized neural network parameters...</p>
+        </div>
 
-            <!-- Comparison views for the final transparency mask output -->
-            <div id="preview-section" class="preview-grid hidden">
-                <div class="preview-box">
-                    <div class="preview-header">
-                        <div class="preview-title">Original Graphic</div>
-                        <div id="img-specs" class="preview-spec">0x0</div>
-                    </div>
-                    <div class="image-viewport">
-                        <img id="input-image" src="" alt="Source preview">
-                    </div>
+        <div id="preview-section" class="preview-grid hidden">
+            <div class="preview-box">
+                <div class="preview-header">
+                    <div class="preview-title">Original Graphic</div>
+                    <div id="img-specs" class="preview-spec">0x0</div>
                 </div>
-
-                <div class="preview-box">
-                    <div class="preview-header">
-                        <div class="preview-title accent">Cutout Mask</div>
-                        <div class="preview-spec" style="color:var(--accent-purple);">Lossless PNG</div>
-                    </div>
-                    <div class="image-viewport checkered">
-                        <img id="output-image" src="" alt="AI Output Cutout">
-                    </div>
-                    <button id="download-btn" class="download-btn disabled" style="margin-top: 8px;">Download Transparent Cutout</button>
+                <div class="image-viewport">
+                    <img id="input-image" src="" alt="Source preview">
                 </div>
+            </div>
+
+            <div class="preview-box">
+                <div class="preview-header">
+                    <div class="preview-title accent">Cutout Mask</div>
+                    <div class="preview-spec" style="color:var(--accent-purple);">Lossless PNG</div>
+                </div>
+                <div class="image-viewport checkered">
+                    <img id="output-image" src="" alt="AI Output Cutout">
+                </div>
+                <button id="download-btn" class="download-btn disabled">Download Transparent Cutout</button>
             </div>
         </div>
     </main>
 
     <footer>
-        © 2026 ClearCut.AI Pro • Free WebAssembly Serverless Processing Framework
+        © 2026 ClearCut.AI • Free WebAssembly Serverless Processing Framework
     </footer>
 
     <script type="module" src="app.js"></script>
