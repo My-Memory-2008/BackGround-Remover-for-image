@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClearCut.AI — AI Vision Enhancer Tool</title>
+    <title>ClearCut.AI — AI Vision Enhancer</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,9 +11,9 @@
     <header>
         <div class="header-container">
             <div class="logo">ClearCut<span>.AI</span></div>
-            <nav style="display: flex; gap: 12px;">
-                <a href="index.html" style="color: #94a3b8; font-weight: 600; font-size: 0.8rem; text-decoration: none;">Background Remover</a>
-                <a href="vision.html" style="color: #a855f7; font-weight: 700; font-size: 0.8rem; text-decoration: none; border-bottom: 2px solid #a855f7; padding-bottom: 2px;">AI Vision Enhancer</a>
+            <nav style="display: flex; gap: 16px;">
+                <a href="index.html" style="color: var(--text-muted); font-weight: 600; font-size: 0.8rem; text-decoration: none;">Background Remover</a>
+                <a href="vision.html" style="color: var(--accent-purple); font-weight: 700; font-size: 0.8rem; text-decoration: none; border-bottom: 2px solid var(--accent-purple); padding-bottom: 2px;">AI Vision Enhancer</a>
             </nav>
             <div class="engine-badge">
                 <div class="pulse-dot"></div>
@@ -25,7 +25,7 @@
     <main>
         <div class="hero-section">
             <h1>AI Vision Feature Tuning</h1>
-            <p>Analyze and optimize lighting filters or edges automatically inside your browser via local on-device neural models.</p>
+            <p>Analyze and optimize lighting filters or boundary edges automatically inside your browser window framework using on-device models.</p>
         </div>
 
         <div id="error-card" class="error-card hidden">
@@ -38,17 +38,16 @@
         </div>
 
         <div class="workspace-card">
-            <!-- Exact duplicate wrapper layout structure to mirror your functional upload process -->
             <div id="drop-zone" class="drop-zone">
                 <input type="file" id="file-input" accept="image/*" style="display: none !important;">
                 <p class="drop-text-primary">Drag & drop your file here, or <span>browse storage</span></p>
                 <p class="drop-text-secondary">Supports PNG, JPG, and WEBP formats</p>
             </div>
 
-            <!-- Optional user directive prompt element block -->
-            <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 6px;">
+            <!-- Optional Intent Directive Context Box -->
+            <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 6px; width: 100%;">
                 <label style="font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-align: left;">Optional AI Vision Directive Prompt:</label>
-                <input type="text" id="prompt-input" placeholder="e.g., 'Make the subject pop out more', 'Sharpen dark edges', 'Boost contrast'..." style="background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 10px; color: #fff; font-size: 0.8rem; outline: none; width: 100%;">
+                <input type="text" id="prompt-input" placeholder="e.g., 'Make the subject pop out more', 'Sharpen dark edges', 'Boost contrast'..." style="background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 12px; color: #fff; font-size: 0.8rem; outline: none; width: 100%;">
             </div>
 
             <div class="inputs-row" style="grid-template-columns: 1fr;">
@@ -71,7 +70,6 @@
                     <img id="input-image" src="" alt="Source preview">
                     <div id="ai-thought-box" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.95); padding: 12px; font-size: 0.75rem; color: #cbd5e1; border-top: 1px solid #334155; text-align: left;"></div>
                 </div>
-                <!-- Interactive Action Links to send the image back and forth -->
                 <button id="download-btn" class="download-btn disabled" style="margin-top: 8px;">Download Tuned Asset</button>
             </div>
         </div>
@@ -81,7 +79,6 @@
         © 2026 ClearCut.AI • Free WebAssembly Serverless Processing Framework
     </footer>
 
-    <!-- Runs specialized logic file setup -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
