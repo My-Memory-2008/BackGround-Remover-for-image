@@ -382,3 +382,91 @@ footer {
 
 
 
+
+
+
+
+
+
+
+
+
+.preprocess-section {
+    width: 100%;
+    max-width: 700px;
+    background-color: rgba(15, 23, 42, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.section-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--accent-purple);
+}
+
+.section-header p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.prompt-box textarea {
+    width: 100%;
+    min-height: 80px;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    resize: vertical;
+}
+
+.enhance-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.enhance-btn {
+    flex: 1;
+    min-width: 150px;
+    background: linear-gradient(to right, var(--accent-purple), var(--accent-pink));
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.enhance-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.action-btn {
+    background: linear-gradient(to right, #3b82f6, #8b5cf6);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+}
+
+@media (max-width: 640px) {
+    .enhance-options {
+        flex-direction: column;
+    }
+    
+    .enhance-btn {
+        width: 100%;
+    }
+}
