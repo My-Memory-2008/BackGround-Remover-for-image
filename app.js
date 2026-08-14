@@ -238,6 +238,8 @@
 
 
 
+
+
 import { removeBackground } from "https://jsdelivr.net";
 import { pipeline } from "https://jsdelivr.net";
 
@@ -282,6 +284,7 @@ dropZoneVision.addEventListener('click', () => fileInputVision.click());
 
 fileInputVision.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
+        // FIXED: Explicitly target index 0 of files array right away
         visionFileBlobObject = e.target.files[0];
         analyzeBtn.classList.remove('disabled');
         dropZoneVision.style.borderColor = "var(--success-green)";
@@ -289,11 +292,22 @@ fileInputVision.addEventListener('change', (e) => {
     }
 });
 
-// Drag and drop for Section 1
-setupDragAndDropEvents(dropZoneVision, (files) => {
-    visionFileBlobObject = files[0];
-    analyzeBtn.classList.remove('disabled');
-    dropZoneVision.style.borderColor = "var(--success-green)";
+// Drag and drop setup for Section 1
+['dragenter', 'dragover'].forEach(name => {
+    dropZoneVision.addEventListener(name, (e) => { e.preventDefault(); dropZoneVision.style.borderColor = "var(--accent-purple)"; }, false);
+});
+['dragleave', 'drop'].forEach(name => {
+    dropZoneVision.addEventListener(name, (e) => { e.preventDefault(); dropZoneVision.style.borderColor = "var(--border-color)"; }, false);
+});
+dropZoneVision.addEventListener('drop', (e) => {
+    e.preventDefault();
+    errorCard.classList.add('hidden');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        // FIXED: Explicitly extract the first actual File out of data transfer array blocks
+        visionFileBlobObject = e.dataTransfer.files[0];
+        analyzeBtn.classList.remove('disabled');
+        dropZoneVision.style.borderColor = "var(--success-green)";
+    }
 });
 
 // Run Vision Optimization Execution Script Loop
@@ -301,20 +315,20 @@ analyzeBtn.addEventListener('click', async () => {
     if (!visionFileBlobObject) return;
     
     errorCard.classList.add('hidden');
-    toggleLoader(true, "Loading local vision model into browser memory space...");
+    toggleLoader(true, "Waking on-device vision model weights...");
     
     try {
         if (!visionModelCache) {
             visionModelCache = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning');
         }
         
-        toggleLoader(true, "AI parsing lighting values and checking feature definition...");
+        toggleLoader(true, "AI reading composition elements & checking edge metrics...");
         const imageURL = URL.createObjectURL(visionFileBlobObject);
         
         const visionAnalysisOutput = await visionModelCache(imageURL);
-        const descriptionText = visionAnalysisOutput?.[0]?.generated_text || "unidentifiable visual layers";
+        const descriptionText = visionAnalysisOutput[0]?.generated_text || "unidentifiable visual layers";
         
-        toggleLoader(true, "Compiling balance filters and rendering adjustments...");
+        toggleLoader(true, "Calibrating contrast and exposure profiles dynamically...");
         enhancedBlobResult = await applyImageProcessingPipeline(visionFileBlobObject, descriptionText, promptInput.value.trim());
         
         // Show Vision Output block
@@ -329,7 +343,7 @@ analyzeBtn.addEventListener('click', async () => {
         
         toggleLoader(false);
     } catch (fault) {
-        showCrashCard("Vision Fault", "Analysis Loop Interrupted", "The vision module ran into an initialization context error.", fault.message);
+        showCrashCard("Vision Fault", "Analysis Loop Interrupted", "The vision module ran into an initialization error.", fault.message);
         toggleLoader(false);
     }
 });
@@ -340,6 +354,7 @@ dropZoneRemover.addEventListener('click', () => fileInputRemover.click());
 
 fileInputRemover.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
+        // FIXED: Extract index zero single file object out of array list bundle
         removerFileBlobObject = e.target.files[0];
         processBgBtn.classList.remove('disabled');
         dropZoneRemover.style.borderColor = "var(--success-green)";
@@ -347,11 +362,22 @@ fileInputRemover.addEventListener('change', (e) => {
     }
 });
 
-// Drag and drop for Section 2
-setupDragAndDropEvents(dropZoneRemover, (files) => {
-    removerFileBlobObject = files[0];
-    processBgBtn.classList.remove('disabled');
-    dropZoneRemover.style.borderColor = "var(--success-green)";
+// Drag and drop setup for Section 2
+['dragenter', 'dragover'].forEach(name => {
+    dropZoneRemover.addEventListener(name, (e) => { e.preventDefault(); dropZoneRemover.style.borderColor = "var(--accent-purple)"; }, false);
+});
+['dragleave', 'drop'].forEach(name => {
+    dropZoneRemover.addEventListener(name, (e) => { e.preventDefault(); dropZoneRemover.style.borderColor = "var(--border-color)"; }, false);
+});
+dropZoneRemover.addEventListener('drop', (e) => {
+    e.preventDefault();
+    errorCard.classList.add('hidden');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        // FIXED: Extract the first actual File from list array data payload strings
+        removerFileBlobObject = e.dataTransfer.files[0];
+        processBgBtn.classList.remove('disabled');
+        dropZoneRemover.style.borderColor = "var(--success-green)";
+    }
 });
 
 // Main Background Stripping Action Execution
@@ -400,7 +426,7 @@ window.addEventListener('paste', async (e) => {
     if (!items) return;
     for (let item of items) {
         if (item.type.indexOf("image") !== -1) {
-            clearActiveErrors();
+            errorCard.classList.add('hidden');
             const binaryFile = item.getAsFile();
             // Paste populates both holding states for convenience
             visionFileBlobObject = binaryFile;
@@ -413,29 +439,6 @@ window.addEventListener('paste', async (e) => {
         }
     }
 });
-
-// Helper setup method for parsing layout drops cleanly
-function setupDragAndDropEvents(elementNode, customCallback) {
-    ['dragenter', 'dragover'].forEach(name => {
-        elementNode.addEventListener(name, (e) => {
-            e.preventDefault();
-            elementNode.style.borderColor = "var(--accent-purple)";
-        }, false);
-    });
-    ['dragleave', 'drop'].forEach(name => {
-        elementNode.addEventListener(name, (e) => {
-            e.preventDefault();
-            elementNode.style.borderColor = "var(--border-color)";
-        }, false);
-    });
-    elementNode.addEventListener('drop', (e) => {
-        e.preventDefault();
-        clearActiveErrors();
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            customCallback(e.dataTransfer.files);
-        }
-    });
-}
 
 // Canvas Tuning Operations Engine
 function applyImageProcessingPipeline(blobData, modelTags, userPrompt) {
@@ -470,7 +473,6 @@ function applyImageProcessingPipeline(blobData, modelTags, userPrompt) {
     });
 }
 
-function clearActiveErrors() { errorCard.classList.add('hidden'); }
 function toggleLoader(show, text = "") {
     if (show) { statusCard.classList.remove('hidden'); statusText.innerText = text; }
     else { statusCard.classList.add('hidden'); }
@@ -483,4 +485,3 @@ function showCrashCard(badge, title, desc, debugLog) {
     errorBadge.innerText = badge; errorTitle.innerText = title; errorDesc.innerText = desc; errorTrace.innerText = debugLog;
     errorCard.classList.remove('hidden'); errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
-
