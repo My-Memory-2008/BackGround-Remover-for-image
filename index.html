@@ -1,4 +1,4 @@
-<!-- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -89,103 +89,9 @@
 
     <script type="module" src="app.js"></script>
 </body>
-</html> -->
-
-
-
-
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClearCut.AI — Free AI Background Remover</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-    <header>
-        <div class="header-container">
-            <div class="logo">ClearCut<span>.AI</span></div>
-            <nav style="display: flex; gap: 16px;">
-                <a href="index.html" style="color: var(--accent-purple); font-weight: 700; font-size: 0.8rem; text-decoration: none; border-bottom: 2px solid var(--accent-purple); padding-bottom: 2px;">Background Remover</a>
-                <a href="vision.html" style="color: var(--text-muted); font-weight: 600; font-size: 0.8rem; text-decoration: none;">AI Vision Enhancer</a>
-            </nav>
-            <div class="engine-badge">
-                <div class="pulse-dot"></div>
-                Local Web Engine
-            </div>
-        </div>
-    </header>
-
-    <main>
-        <div class="hero-section">
-            <h1>Remove Backgrounds Instantly</h1>
-            <p>100% Free & Unlimited. Images are processed directly inside your browser window framework without server uploads.</p>
-        </div>
-
-        <div id="error-card" class="error-card hidden">
-            <div class="error-header">
-                <div id="error-title" class="error-title">System Fault</div>
-                <div id="error-badge">Runtime Error</div>
-            </div>
-            <div id="error-desc" class="error-desc">An internal code execution processing error occurred.</div>
-            <div id="error-trace" class="error-trace">No technical logs compiled.</div>
-        </div>
-
-        <div class="workspace-card">
-            <div id="drop-zone" class="drop-zone">
-                <input type="file" id="file-input" accept="image/*" style="display: none !important;">
-                <p class="drop-text-primary">Drag & drop your file here, or <span>browse storage</span></p>
-                <p class="drop-text-secondary">Supports PNG, JPG, and WEBP formats</p>
-            </div>
-
-            <div class="inputs-row">
-                <div class="url-box">
-                    <input type="url" id="url-input" placeholder="Paste image web address (URL)...">
-                    <button id="url-btn">Fetch</button>
-                </div>
-                <div class="hint-box">
-                    Or simply hit <kbd>Ctrl + V</kbd> to paste an image instantly
-                </div>
-            </div>
-        </div>
-
-        <div id="status-card" class="status-badge hidden">
-            <div class="pulse-dot" style="background-color: var(--accent-purple); transform: scale(1.2);"></div>
-            <p id="status-text" class="status-text">Loading localized neural network parameters...</p>
-        </div>
-
-        <div id="preview-section" class="preview-grid hidden">
-            <div class="preview-box">
-                <div class="preview-header">
-                    <div class="preview-title">Original Graphic</div>
-                    <div id="img-specs" class="preview-spec">0x0</div>
-                </div>
-                <div class="image-viewport">
-                    <img id="input-image" src="" alt="Source preview">
-                </div>
-            </div>
-
-            <div class="preview-box">
-                <div class="preview-header">
-                    <div class="preview-title accent">Cutout Mask</div>
-                    <div class="preview-spec" style="color:var(--accent-purple);">Lossless PNG</div>
-                </div>
-                <div class="image-viewport checkered">
-                    <img id="output-image" src="" alt="AI Output Cutout">
-                </div>
-                <button id="download-btn" class="download-btn disabled">Download Transparent Cutout</button>
-            </div>
-        </div>
-    </main>
-
-    <footer>
-        © 2026 ClearCut.AI • Free WebAssembly Serverless Processing Framework
-    </footer>
-
-    <script type="module" src="app.js"></script>
-</body>
 </html>
+
+
+
+
+
