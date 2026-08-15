@@ -237,6 +237,7 @@
 
 
 
+
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // Import TensorFlow.js for client-side vision processing
@@ -349,7 +350,7 @@ const visionErrorBadge = document.getElementById('vision-error-badge');
 const visionErrorDesc = document.getElementById('vision-error-desc');
 const visionErrorTrace = document.getElementById('vision-error-trace');
 
-// BACKGROUND REMOVAL DOM ELEMENTS (your original ones)
+// BACKGROUND REMOVAL DOM ELEMENTS
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const urlInput = document.getElementById('url-input');
@@ -662,7 +663,7 @@ function displayVisionResults(originalBlob, enhancedBlob) {
     toggleVisionLoaderDisplay(false);
 }
 
-// BACKGROUND REMOVAL EVENT HANDLERS (your original ones)
+// BACKGROUND REMOVAL EVENT HANDLERS
 dropZone.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', (event) => {
@@ -724,7 +725,7 @@ urlBtn.addEventListener('click', async () => {
     }
 });
 
-// Background removal processing function (your original one)
+// Background removal processing function
 async function processTargetBlob(incomingFileOrBlob) {
     if (!incomingFileOrBlob) return;
 
@@ -786,7 +787,7 @@ async function processTargetBlob(incomingFileOrBlob) {
     }
 }
 
-// Executes background removal model natively via ONNX WebAssembly (your original one)
+// Executes background removal model natively via ONNX WebAssembly
 async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
     toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
@@ -854,7 +855,7 @@ function setVisionDownloadButtonState(enabled, clickCallback = null) {
     }
 }
 
-// BACKGROUND REMOVAL UTILITY FUNCTIONS (your original ones)
+// BACKGROUND REMOVAL UTILITY FUNCTIONS
 function clearActiveErrors() {
     errorCard.classList.add('hidden');
 }
