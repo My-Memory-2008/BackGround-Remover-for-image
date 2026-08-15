@@ -383,6 +383,9 @@ footer {
 
 
 
+
+
+
 /* Custom CSS Variables & Layout Reset */
 :root {
     --bg-main: #020617;
@@ -859,9 +862,5 @@ footer {
         transform: rotate(180deg);
     }
 }
-
-
-
-
 
 
