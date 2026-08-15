@@ -237,8 +237,6 @@
 
 
 
-
-
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // Import TensorFlow.js for client-side vision processing
@@ -352,7 +350,7 @@ const visionErrorDesc = document.getElementById('vision-error-desc');
 const visionErrorTrace = document.getElementById('vision-error-trace');
 
 // BACKGROUND REMOVAL DOM ELEMENTS
-const bgDropZone = document.getElementById('drop-zone'); // Changed to bgDropZone to match HTML
+const bgDropZone = document.getElementById('drop-zone');
 const bgFileInput = document.getElementById('file-input');
 const bgUrlInput = document.getElementById('url-input');
 const bgUrlBtn = document.getElementById('url-btn');
@@ -377,8 +375,11 @@ initializeVisionModel();
 
 // VISION ANALYSIS EVENT HANDLERS
 visionDropZone.addEventListener('click', (e) => {
-    e.preventDefault();
-    visionFileInput.click(); // Trigger file input click
+    // Check if the click was on the drop zone itself, not on child elements
+    if (e.target === visionDropZone) {
+        e.preventDefault();
+        visionFileInput.click(); // Trigger file input click
+    }
 });
 
 visionFileInput.addEventListener('change', (event) => {
@@ -667,8 +668,11 @@ function displayVisionResults(originalBlob, enhancedBlob) {
 
 // BACKGROUND REMOVAL EVENT HANDLERS
 bgDropZone.addEventListener('click', (e) => {
-    e.preventDefault();
-    bgFileInput.click(); // Trigger file input click
+    // Check if the click was on the drop zone itself, not on child elements
+    if (e.target === bgDropZone) {
+        e.preventDefault();
+        bgFileInput.click(); // Trigger file input click
+    }
 });
 
 bgFileInput.addEventListener('change', (event) => {
