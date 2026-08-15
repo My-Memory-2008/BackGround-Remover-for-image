@@ -239,7 +239,6 @@
 
 
 
-
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // Import TensorFlow.js for client-side vision processing
@@ -352,32 +351,35 @@ const visionErrorBadge = document.getElementById('vision-error-badge');
 const visionErrorDesc = document.getElementById('vision-error-desc');
 const visionErrorTrace = document.getElementById('vision-error-trace');
 
-// BACKGROUND REMOVAL DOM ELEMENTS (your original ones)
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const urlInput = document.getElementById('url-input');
-const urlBtn = document.getElementById('url-btn');
+// BACKGROUND REMOVAL DOM ELEMENTS
+const bgDropZone = document.getElementById('drop-zone'); // Changed to bgDropZone to match HTML
+const bgFileInput = document.getElementById('file-input');
+const bgUrlInput = document.getElementById('url-input');
+const bgUrlBtn = document.getElementById('url-btn');
 
-const statusCard = document.getElementById('status-card');
-const statusText = document.getElementById('status-text');
-const previewSection = document.getElementById('preview-section');
+const bgStatusCard = document.getElementById('status-card');
+const bgStatusText = document.getElementById('status-text');
+const bgPreviewSection = document.getElementById('preview-section');
 
-const inputImage = document.getElementById('input-image');
-const outputImage = document.getElementById('output-image');
-const downloadBtn = document.getElementById('download-btn');
-const imgSpecs = document.getElementById('img-specs');
+const bgInputImage = document.getElementById('input-image');
+const bgOutputImage = document.getElementById('output-image');
+const bgDownloadBtn = document.getElementById('download-btn');
+const bgImgSpecs = document.getElementById('img-specs');
 
-const errorCard = document.getElementById('error-card');
-const errorTitle = document.getElementById('error-title');
-const errorBadge = document.getElementById('error-badge');
-const errorDesc = document.getElementById('error-desc');
-const errorTrace = document.getElementById('error-trace');
+const bgErrorCard = document.getElementById('error-card');
+const bgErrorTitle = document.getElementById('error-title');
+const bgErrorBadge = document.getElementById('error-badge');
+const bgErrorDesc = document.getElementById('error-desc');
+const bgErrorTrace = document.getElementById('error-trace');
 
 // Initialize the vision model when the page loads
 initializeVisionModel();
 
 // VISION ANALYSIS EVENT HANDLERS
-visionDropZone.addEventListener('click', () => visionFileInput.click());
+visionDropZone.addEventListener('click', (e) => {
+    e.preventDefault();
+    visionFileInput.click(); // Trigger file input click
+});
 
 visionFileInput.addEventListener('change', (event) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -439,9 +441,9 @@ window.addEventListener('paste', async (e) => {
         
         for (let item of clipboardPayload) {
             if (item.type.indexOf("image") !== -1) {
-                clearActiveErrors();
+                clearBgErrors();
                 const matchingFile = item.getAsFile();
-                processTargetBlob(matchingFile);
+                processBgTargetBlob(matchingFile);
                 break;
             }
         }
@@ -663,74 +665,77 @@ function displayVisionResults(originalBlob, enhancedBlob) {
     toggleVisionLoaderDisplay(false);
 }
 
-// BACKGROUND REMOVAL EVENT HANDLERS (your original ones)
-dropZone.addEventListener('click', () => fileInput.click());
+// BACKGROUND REMOVAL EVENT HANDLERS
+bgDropZone.addEventListener('click', (e) => {
+    e.preventDefault();
+    bgFileInput.click(); // Trigger file input click
+});
 
-fileInput.addEventListener('change', (event) => {
+bgFileInput.addEventListener('change', (event) => {
     if (event.target.files && event.target.files.length > 0) {
-        clearActiveErrors();
+        clearBgErrors();
         const rawFileObj = event.target.files[0];
-        processTargetBlob(rawFileObj);
+        processBgTargetBlob(rawFileObj);
     }
 });
 
 ['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, (e) => {
+    bgDropZone.addEventListener(eventName, (e) => {
         e.preventDefault();
-        dropZone.style.borderColor = "var(--accent-purple)";
-        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.6)";
+        bgDropZone.style.borderColor = "var(--accent-purple)";
+        bgDropZone.style.backgroundColor = "rgba(2, 6, 23, 0.6)";
     }, false);
 });
 
 ['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, (e) => {
+    bgDropZone.addEventListener(eventName, (e) => {
         e.preventDefault();
-        dropZone.style.borderColor = "var(--border-color)";
-        dropZone.style.backgroundColor = "rgba(2, 6, 23, 0.3)";
+        bgDropZone.style.borderColor = "var(--border-color)";
+        bgDropZone.style.backgroundColor = "rgba(2, 6, 23, 0.3)";
     }, false);
 });
 
-dropZone.addEventListener('drop', (e) => {
+bgDropZone.addEventListener('drop', (e) => {
     e.preventDefault();
-    clearActiveErrors();
+    clearBgErrors();
     
     const dataPayload = e.dataTransfer;
     if (dataPayload && dataPayload.files && dataPayload.files.length > 0) {
         const rawFileObj = dataPayload.files[0];
-        processTargetBlob(rawFileObj);
+        processBgTargetBlob(rawFileObj);
     }
 });
 
 // Background removal URL fetch
-urlBtn.addEventListener('click', async () => {
-    const rawUrl = urlInput.value.trim();
+bgUrlBtn.addEventListener('click', async () => {
+    const rawUrl = bgUrlInput.value.trim();
     if (!rawUrl) return;
     
-    clearActiveErrors();
-    toggleLoaderDisplay(true, "Downloading image file from URL stream...");
+    clearBgErrors();
+    toggleBgLoaderDisplay(true, "Downloading image file from URL stream...");
     
     try {
         const response = await fetch(rawUrl);
         if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
         const imageBlob = await response.blob();
-        processTargetBlob(imageBlob, "downloaded_image.png");
+        processBgTargetBlob(imageBlob, "downloaded_image.png");
     } catch (err) {
-        showDiagnosticCrashCard(
+        showBgDiagnosticCrashCard(
             "Network Request Blocked",
             "CORS Access Error",
             "Could not load the image from that URL. The website hosting this image blocks direct script access due to Cross-Origin Security Laws.",
             err.message
         );
-        toggleLoaderDisplay(false);
+        toggleBgLoaderDisplay(false);
     }
 });
 
-// Background removal processing function (your original one)
-async function processTargetBlob(incomingFileOrBlob) {
+// Background removal processing function
+async function processBgTargetBlob(incomingFileOrBlob) {
     if (!incomingFileOrBlob) return;
 
     if (!incomingFileOrBlob.type || !incomingFileOrBlob.type.startsWith('image/')) {
-        showDiagnosticCrashCard(
+        showBgDiagnosticCrashCard(
             "Format Rejection",
             "Unsupported Extension Type",
             "The upload failed because this file type is not a valid format. Please choose an image like PNG, JPG, or WEBP.",
@@ -739,7 +744,7 @@ async function processTargetBlob(incomingFileOrBlob) {
         return;
     }
 
-    toggleLoaderDisplay(true, "Decoding graphical layout arrays...");
+    toggleBgLoaderDisplay(true, "Decoding graphical layout arrays...");
     const dynamicFallbackName = incomingFileOrBlob.name || "processed_asset.png";
 
     try {
@@ -752,18 +757,18 @@ async function processTargetBlob(incomingFileOrBlob) {
         if (!context) throw new Error("Could not draw local pixel buffer allocations.");
         
         context.drawImage(decodedBitmap, 0, 0);
-        imgSpecs.innerText = `${decodedBitmap.width} × ${decodedBitmap.height}`;
+        bgImgSpecs.innerText = `${decodedBitmap.width} × ${decodedBitmap.height}`;
 
         internalCanvas.toBlob(async (compiledPngBlob) => {
             if (!compiledPngBlob) throw new Error("Canvas pipeline compilation failed.");
             
             const liveUrlView = URL.createObjectURL(compiledPngBlob);
             
-            previewSection.classList.remove('hidden');
-            inputImage.src = liveUrlView;
-            outputImage.src = "";
-            outputImage.classList.add('opacity-dim');
-            setDownloadButtonState(false);
+            bgPreviewSection.classList.remove('hidden');
+            bgInputImage.src = liveUrlView;
+            bgOutputImage.src = "";
+            bgOutputImage.classList.add('opacity-dim');
+            setBgDownloadButtonState(false);
 
             await runNeuralBackgroundAI(compiledPngBlob, dynamicFallbackName);
         }, 'image/png');
@@ -772,37 +777,37 @@ async function processTargetBlob(incomingFileOrBlob) {
         console.warn("Canvas hardware accelerator unavailable. Reverting to direct link layout streams: ", pipelineFault);
         try {
             const rawDirectUrl = URL.createObjectURL(incomingFileOrBlob);
-            previewSection.classList.remove('hidden');
-            inputImage.src = rawDirectUrl;
+            bgPreviewSection.classList.remove('hidden');
+            bgInputImage.src = rawDirectUrl;
             await runNeuralBackgroundAI(incomingFileOrBlob, dynamicFallbackName);
         } catch (finalCrashState) {
-            showDiagnosticCrashCard(
+            showBgDiagnosticCrashCard(
                 "Image Loading Error",
                 "Layout Reader Fault",
                 "The browser failed to read or display this image layout structure.",
                 pipelineFault.message
             );
-            toggleLoaderDisplay(false);
+            toggleBgLoaderDisplay(false);
         }
     }
 }
 
-// Executes background removal model natively via ONNX WebAssembly (your original one)
+// Executes background removal model natively via ONNX WebAssembly
 async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
-    toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
+    toggleBgLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
         const outputResultBlob = await removeBackground(cleanPngBlob, {
             progress: (instance, doneAmount, totalAmount) => {
                 const percentDone = Math.round((doneAmount / totalAmount) * 100);
-                toggleLoaderDisplay(true, `Isolating subject shapes... (${isNaN(percentDone) ? 0 : percentDone}%)`);
+                toggleBgLoaderDisplay(true, `Isolating subject shapes... (${isNaN(percentDone) ? 0 : percentDone}%)`);
             }
         });
 
         const maskObjectURL = URL.createObjectURL(outputResultBlob);
-        outputImage.src = maskObjectURL;
-        outputImage.classList.remove('opacity-dim');
+        bgOutputImage.src = maskObjectURL;
+        bgOutputImage.classList.remove('opacity-dim');
         
-        setDownloadButtonState(true, () => {
+        setBgDownloadButtonState(true, () => {
             const transferAnchor = document.createElement('a');
             transferAnchor.href = maskObjectURL;
             const basicCleanedName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
@@ -810,15 +815,15 @@ async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
             transferAnchor.click();
         });
 
-        toggleLoaderDisplay(false);
+        toggleBgLoaderDisplay(false);
     } catch (aiComputeFault) {
-        showDiagnosticCrashCard(
+        showBgDiagnosticCrashCard(
             "AI Core Engine Issue",
             "ONNX Model Memory Exception",
             "The background removal failed. This usually happens if your browser tab runs out of memory while processing very large high-resolution images.",
             aiComputeFault.message || "WASM Stack limit reached"
         );
-        toggleLoaderDisplay(false);
+        toggleBgLoaderDisplay(false);
     }
 }
 
@@ -855,35 +860,35 @@ function setVisionDownloadButtonState(enabled, clickCallback = null) {
     }
 }
 
-// BACKGROUND REMOVAL UTILITY FUNCTIONS (your original ones)
-function clearActiveErrors() {
-    errorCard.classList.add('hidden');
+// BACKGROUND REMOVAL UTILITY FUNCTIONS
+function clearBgErrors() {
+    bgErrorCard.classList.add('hidden');
 }
 
-function showDiagnosticCrashCard(badge, title, message, stackTrace) {
-    errorBadge.innerText = badge;
-    errorTitle.innerText = title;
-    errorDesc.innerText = message;
-    errorTrace.innerText = stackTrace || "No structural trace reporting active.";
-    errorCard.classList.remove('hidden');
-    errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+function showBgDiagnosticCrashCard(badge, title, message, stackTrace) {
+    bgErrorBadge.innerText = badge;
+    bgErrorTitle.innerText = title;
+    bgErrorDesc.innerText = message;
+    bgErrorTrace.innerText = stackTrace || "No structural trace reporting active.";
+    bgErrorCard.classList.remove('hidden');
+    bgErrorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function toggleLoaderDisplay(visible, trackingText = "") {
+function toggleBgLoaderDisplay(visible, trackingText = "") {
     if (visible) {
-        statusCard.classList.remove('hidden');
-        statusText.innerText = trackingText;
+        bgStatusCard.classList.remove('hidden');
+        bgStatusText.innerText = trackingText;
     } else {
-        statusCard.classList.add('hidden');
+        bgStatusCard.classList.add('hidden');
     }
 }
 
-function setDownloadButtonState(enabled, clickCallback = null) {
+function setBgDownloadButtonState(enabled, clickCallback = null) {
     if (enabled) {
-        downloadBtn.classList.remove('disabled');
-        downloadBtn.onclick = clickCallback;
+        bgDownloadBtn.classList.remove('disabled');
+        bgDownloadBtn.onclick = clickCallback;
     } else {
-        downloadBtn.classList.add('disabled');
-        downloadBtn.onclick = null;
+        bgDownloadBtn.classList.add('disabled');
+        bgDownloadBtn.onclick = null;
     }
 }
