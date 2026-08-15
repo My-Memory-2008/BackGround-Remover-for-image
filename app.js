@@ -240,92 +240,6 @@
 
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
-// Import TensorFlow.js for client-side vision processing
-import * as tf from "https://cdn.skypack.dev/@tensorflow/tfjs";
-
-// Vision model initialization flag
-let visionModelLoaded = false;
-
-// Initialize the vision model when the page loads
-async function initializeVisionModel() {
-    if (visionModelLoaded) return;
-    
-    try {
-        // Show loading indicator
-        toggleVisionLoaderDisplay(true, "Loading vision analysis model...");
-        
-        // Load TensorFlow.js backend
-        await tf.ready();
-        
-        visionModelLoaded = true;
-        toggleVisionLoaderDisplay(false);
-    } catch (error) {
-        console.error('Failed to initialize vision model:', error);
-        toggleVisionLoaderDisplay(false);
-        showVisionDiagnosticCrashCard(
-            "Model Initialization Failed",
-            "Vision Model Error",
-            "Could not load the vision analysis model. Using original image.",
-            error.message
-        );
-    }
-}
-
-// Simple enhancement function using TensorFlow.js
-function enhanceImageLocally(imageData, prompt) {
-    // Create a tensor from the image data
-    const tensor = tf.browser.fromPixels(imageData);
-    
-    // Apply basic enhancement based on prompt
-    let enhancedTensor = tensor;
-    
-    if (prompt.toLowerCase().includes('brighten') || prompt.toLowerCase().includes('light')) {
-        // Brighten the image
-        enhancedTensor = tf.add(tensor, tf.scalar(20));
-        enhancedTensor = tf.clipByValue(enhancedTensor, 0, 255);
-    } else if (prompt.toLowerCase().includes('sharpen')) {
-        // Apply a simple sharpening kernel
-        const kernel = tf.tensor4d([
-            [[0, -1, 0], [-1, 5, -1], [0, -1, 0]],
-            [[0, -1, 0], [-1, 5, -1], [0, -1, 0]],
-            [[0, -1, 0], [-1, 5, -1], [0, -1, 0]]
-        ], [3, 3, 3, 1]); // 3 channels for RGB
-        
-        // Reshape for convolution
-        const reshaped = tensor.expandDims(0).toFloat();
-        enhancedTensor = tf.conv2d(reshaped, kernel, 1, 'same').squeeze([0]);
-        enhancedTensor = tf.clipByValue(enhancedTensor, 0, 255);
-    } else if (prompt.toLowerCase().includes('contrast')) {
-        // Increase contrast
-        const mean = tensor.mean();
-        enhancedTensor = tf.add(tf.scalar(1.2).mul(tf.sub(tensor, mean)), mean);
-        enhancedTensor = tf.clipByValue(enhancedTensor, 0, 255);
-    } else {
-        // Default enhancement - focus on center of image (subject emphasis)
-        const [height, width] = tensor.shape;
-        const centerX = Math.floor(width / 2);
-        const centerY = Math.floor(height / 2);
-        const radius = Math.min(width, height) / 4;
-        
-        // Create a radial gradient to emphasize center
-        const coords = tf.meshgrid(
-            tf.linspace(0, height - 1, height),
-            tf.linspace(0, width - 1, width)
-        );
-        
-        const yDist = tf.sub(coords[0], centerY);
-        const xDist = tf.sub(coords[1], centerX);
-        const dist = tf.sqrt(tf.add(tf.square(yDist), tf.square(xDist)));
-        const maxDist = Math.sqrt(Math.pow(width/2, 2) + Math.pow(height/2, 2));
-        const vignette = tf.div(1, tf.add(1, tf.pow(tf.div(dist, radius), 2)));
-        
-        enhancedTensor = tf.mul(tensor, vignette.reshape([height, width, 1]));
-        enhancedTensor = tf.clipByValue(enhancedTensor, 0, 255);
-    }
-    
-    return enhancedTensor;
-}
-
 // VISION ANALYSIS DOM ELEMENTS
 const visionDropZone = document.getElementById('vision-drop-zone');
 const visionFileInput = document.getElementById('vision-file-input');
@@ -350,7 +264,7 @@ const visionErrorBadge = document.getElementById('vision-error-badge');
 const visionErrorDesc = document.getElementById('vision-error-desc');
 const visionErrorTrace = document.getElementById('vision-error-trace');
 
-// BACKGROUND REMOVAL DOM ELEMENTS
+// BACKGROUND REMOVAL DOM ELEMENTS (your original ones)
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const urlInput = document.getElementById('url-input');
@@ -371,10 +285,7 @@ const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
-// Initialize the vision model when the page loads
-initializeVisionModel();
-
-// VISION ANALYSIS EVENT HANDLERS
+// VISION ANALYSIS EVENT HANDLERS (minimal version)
 visionDropZone.addEventListener('click', () => visionFileInput.click());
 
 visionFileInput.addEventListener('change', (event) => {
@@ -412,131 +323,10 @@ visionDropZone.addEventListener('drop', (e) => {
     }
 });
 
-// Clipboard paste actions for vision section
-window.addEventListener('paste', async (e) => {
-    // Check if the paste event originated from the vision section
-    const activeElement = document.activeElement;
-    const visionSection = document.getElementById('vision-section');
-    const bgSection = document.getElementById('background-section');
-    
-    // If we're targeting the vision section specifically
-    if (activeElement.closest('.tool-section:first-child')) {
-        const clipboardPayload = e.clipboardData?.items;
-        if (!clipboardPayload) return;
-        
-        for (let item of clipboardPayload) {
-            if (item.type.indexOf("image") !== -1) {
-                clearVisionErrors();
-                const matchingFile = item.getAsFile();
-                processVisionTargetBlob(matchingFile);
-                break;
-            }
-        }
-    } else {
-        // Default to background removal section
-        const clipboardPayload = e.clipboardData?.items;
-        if (!clipboardPayload) return;
-        
-        for (let item of clipboardPayload) {
-            if (item.type.indexOf("image") !== -1) {
-                clearActiveErrors();
-                const matchingFile = item.getAsFile();
-                processTargetBlob(matchingFile);
-                break;
-            }
-        }
-    }
-});
-
-// Vision URL fetch
-visionUrlBtn.addEventListener('click', async () => {
-    const rawUrl = visionUrlInput.value.trim();
-    if (!rawUrl) return;
-    
-    clearVisionErrors();
-    toggleVisionLoaderDisplay(true, "Downloading image file from URL stream...");
-    
-    try {
-        const response = await fetch(rawUrl);
-        if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
-        const imageBlob = await response.blob();
-        processVisionTargetBlob(imageBlob, "downloaded_vision_image.png");
-    } catch (err) {
-        showVisionDiagnosticCrashCard(
-            "Network Request Blocked",
-            "CORS Access Error",
-            "Could not load the image from that URL. The website hosting this image blocks direct script access due to Cross-Origin Security Laws.",
-            err.message
-        );
-        toggleVisionLoaderDisplay(false);
-    }
-});
-
-// Vision enhancement functions with actual vision model
+// Vision enhancement functions (placeholder)
 async function enhanceImageWithVision(imageBlob, prompt = "") {
-    if (!visionModelLoaded) {
-        await initializeVisionModel();
-    }
-    
-    if (!visionModelLoaded) {
-        // If model failed to load, return original image
-        return imageBlob;
-    }
-    
-    toggleVisionLoaderDisplay(true, "Analyzing image with vision model...");
-    
-    try {
-        // Convert blob to image data for the vision model
-        const imageUrl = URL.createObjectURL(imageBlob);
-        const img = new Image();
-        img.src = imageUrl;
-        
-        await new Promise((resolve) => {
-            img.onload = resolve;
-        });
-        
-        // Create canvas to process the image
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        
-        // Get image data
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Process the image using the vision model
-        const enhancedTensor = enhanceImageLocally(imageData, prompt);
-        
-        // Convert tensor back to image data
-        const enhancedImageData = await tf.browser.toPixels(enhancedTensor);
-        
-        // Create new image data from the processed pixels
-        const enhancedImageDataObj = new ImageData(new Uint8ClampedArray(enhancedImageData), canvas.width, canvas.height);
-        
-        // Put the enhanced image data back to canvas
-        ctx.putImageData(enhancedImageDataObj, 0, 0);
-        
-        // Convert back to blob
-        return new Promise((resolve) => {
-            canvas.toBlob((blob) => {
-                resolve(blob);
-            }, 'image/png');
-        });
-        
-    } catch(error) {
-        console.error('Vision enhancement error:', error);
-        showVisionDiagnosticCrashCard(
-            "Vision Enhancement Failed",
-            "AI Processing Error",
-            "Could not enhance image with vision model.",
-            error.message
-        );
-        return imageBlob; // Return original if enhancement fails
-    } finally {
-        // Clean up the URL object
-        URL.revokeObjectURL(imageUrl);
-    }
+    // Placeholder: Just return the original image for now
+    return imageBlob;
 }
 
 // Vision button handlers
@@ -663,7 +453,7 @@ function displayVisionResults(originalBlob, enhancedBlob) {
     toggleVisionLoaderDisplay(false);
 }
 
-// BACKGROUND REMOVAL EVENT HANDLERS
+// BACKGROUND REMOVAL EVENT HANDLERS (your original ones - untouched)
 dropZone.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', (event) => {
@@ -725,7 +515,7 @@ urlBtn.addEventListener('click', async () => {
     }
 });
 
-// Background removal processing function
+// Background removal processing function (your original one - untouched)
 async function processTargetBlob(incomingFileOrBlob) {
     if (!incomingFileOrBlob) return;
 
@@ -787,7 +577,7 @@ async function processTargetBlob(incomingFileOrBlob) {
     }
 }
 
-// Executes background removal model natively via ONNX WebAssembly
+// Executes background removal model natively via ONNX WebAssembly (your original one - untouched)
 async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
     toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
@@ -855,7 +645,7 @@ function setVisionDownloadButtonState(enabled, clickCallback = null) {
     }
 }
 
-// BACKGROUND REMOVAL UTILITY FUNCTIONS
+// BACKGROUND REMOVAL UTILITY FUNCTIONS (your original ones - untouched)
 function clearActiveErrors() {
     errorCard.classList.add('hidden');
 }
