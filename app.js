@@ -274,6 +274,12 @@ const errorTrace = document.getElementById('error-trace');
 const drawRectBtn = document.getElementById('draw-rect-btn');
 const drawFreehandBtn = document.getElementById('draw-freehand-btn');
 const clearDrawBtn = document.getElementById('clear-draw-btn');
+const applyDrawingBtn = document.createElement('button');
+applyDrawingBtn.id = 'apply-drawing-btn';
+applyDrawingBtn.className = 'tool-btn apply-btn';
+applyDrawingBtn.textContent = 'Apply Drawing';
+applyDrawingBtn.style.marginLeft = 'auto';
+
 const drawingCanvas = document.getElementById('drawing-canvas');
 
 // Drawing variables
@@ -285,6 +291,9 @@ window.drawingCoordinates = []; // Store coordinates globally
 
 // Set initial active state for drawing tools
 drawRectBtn.classList.add('active');
+
+// Add the apply button to the drawing controls
+document.querySelector('.drawing-controls').appendChild(applyDrawingBtn);
 
 // Core Click Setup: Click the box area to activate browsing windows
 dropZone.addEventListener('click', () => fileInput.click());
@@ -388,6 +397,32 @@ clearDrawBtn.addEventListener('click', () => {
     currentPath = [];
 });
 
+// Apply Drawing button event handler
+applyDrawingBtn.addEventListener('click', async () => {
+    if (!inputImage.src) {
+        showDiagnosticCrashCard(
+            "No Image Loaded",
+            "Image Required",
+            "Please upload an image first before applying drawing."
+        );
+        return;
+    }
+    
+    if (window.drawingCoordinates.length === 0) {
+        showDiagnosticCrashCard(
+            "No Drawing Areas",
+            "Selection Required",
+            "Please draw areas on the image that you want to keep before applying."
+        );
+        return;
+    }
+    
+    // Re-process the image with the drawn coordinates
+    const imgSrc = inputImage.src;
+    const blob = await fetch(imgSrc).then(r => r.blob());
+    await runNeuralBackgroundAI(blob, "processed_with_drawing.png");
+});
+
 // Initialize drawing for main canvas
 function initializeDrawing() {
     if (!drawingCanvas) return;
@@ -459,11 +494,13 @@ function initializeDrawing() {
             
             // Redraw all previously stored rectangles
             for (const rect of window.drawingCoordinates) {
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
-                ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-                ctx.strokeStyle = '#a855f7';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                if (rect.type === 'rectangle') {
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                }
             }
             
             // Draw current rectangle being drawn
@@ -611,7 +648,11 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             outputImage.classList.add('opacity-dim');
             setDownloadButtonState(false);
 
-            // Pass drawing coordinates and prompt as foreground hints
+            // Reset drawing coordinates for this new image
+            window.drawingCoordinates = [];
+            currentPath = [];
+            
+            // Process without drawing initially
             await runNeuralBackgroundAI(compiledPngBlob, dynamicFallbackName);
         }, 'image/png');
 
@@ -621,6 +662,8 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             const rawDirectUrl = URL.createObjectURL(incomingFileOrBlob);
             previewSection.classList.remove('hidden');
             inputImage.src = rawDirectUrl;
+            window.drawingCoordinates = [];
+            currentPath = [];
             await runNeuralBackgroundAI(incomingFileOrBlob, dynamicFallbackName);
         } catch (finalCrashState) {
             showDiagnosticCrashCard(
@@ -665,8 +708,6 @@ async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
         // Add prompt if available
         const prompt = foregroundPrompt.value.trim();
         if (prompt) {
-            // For text prompts, we could potentially use them as additional hints
-            // but the library primarily uses coordinate-based hints
             console.log("Foreground prompt:", prompt);
         }
         
