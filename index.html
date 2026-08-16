@@ -98,6 +98,10 @@
 
 
 
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -183,8 +187,11 @@
                         <div class="preview-title">Original Image</div>
                         <div id="vision-img-specs" class="preview-spec">0x0</div>
                     </div>
-                    <div class="image-viewport">
-                        <img id="vision-input-image" src="" alt="Source preview">
+                    <div class="image-viewport" style="position: relative; cursor: crosshair;">
+                        <!-- The structural image -->
+                        <img id="vision-input-image" src="" alt="Source preview" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit: contain; pointer-events: none;">
+                        <!-- The transparent drawing sheet layered exactly on top -->
+                        <canvas id="vision-drawing-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10;"></canvas>
                     </div>
                 </div>
 
@@ -253,8 +260,11 @@
                         <div class="preview-title">Original Graphic</div>
                         <div id="img-specs" class="preview-spec">0x0</div>
                     </div>
-                    <div class="image-viewport">
-                        <img id="input-image" src="" alt="Source preview">
+                    <div class="image-viewport" style="position: relative; cursor: crosshair;">
+                        <!-- The structural image -->
+                        <img id="input-image" src="" alt="Source preview" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit: contain; pointer-events: none;">
+                        <!-- The transparent drawing sheet layered exactly on top -->
+                        <canvas id="drawing-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10;"></canvas>
                     </div>
                 </div>
 
