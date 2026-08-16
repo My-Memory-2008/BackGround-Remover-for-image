@@ -851,6 +851,7 @@ footer {
     border: 1px solid var(--border-color);
 }
 
+
 .drawing-controls {
     display: flex;
     gap: 12px;
