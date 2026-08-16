@@ -246,6 +246,7 @@
 
 
 
+
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // User Interface DOM Target Connections
@@ -420,7 +421,7 @@ applyDrawingBtn.addEventListener('click', async () => {
     // Re-process the image with the drawn coordinates
     const imgSrc = inputImage.src;
     const blob = await fetch(imgSrc).then(r => r.blob());
-    await runNeuralBackgroundAI(blob, "processed_with_drawing.png");
+    await runNeuralBackgroundAI(blob, "processed_with_drawing.png", true);
 });
 
 // Initialize drawing for main canvas
@@ -653,7 +654,7 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             currentPath = [];
             
             // Process without drawing initially
-            await runNeuralBackgroundAI(compiledPngBlob, dynamicFallbackName);
+            await runNeuralBackgroundAI(compiledPngBlob, dynamicFallbackName, false);
         }, 'image/png');
 
     } catch (pipelineFault) {
@@ -664,7 +665,7 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             inputImage.src = rawDirectUrl;
             window.drawingCoordinates = [];
             currentPath = [];
-            await runNeuralBackgroundAI(incomingFileOrBlob, dynamicFallbackName);
+            await runNeuralBackgroundAI(incomingFileOrBlob, dynamicFallbackName, false);
         } catch (finalCrashState) {
             showDiagnosticCrashCard(
                 "Image Loading Error",
@@ -678,49 +679,58 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
 }
 
 // Executes background removal model natively via ONNX WebAssembly
-async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
+async function runNeuralBackgroundAI(cleanPngBlob, originalFileName, useDrawing = false) {
     toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
-        // Prepare foreground hints from drawing coordinates
-        let foregroundHints = [];
-        
-        // Convert drawing coordinates to foreground hints
-        for (const coord of window.drawingCoordinates) {
-            if (coord.type === 'rectangle') {
-                // Calculate normalized coordinates for the image size
-                const scaleX = 1 / inputImage.naturalWidth;
-                const scaleY = 1 / inputImage.naturalHeight;
-                
-                const normalizedX = coord.x * scaleX;
-                const normalizedY = coord.y * scaleY;
-                const normalizedWidth = coord.width * scaleX;
-                const normalizedHeight = coord.height * scaleY;
-                
-                foregroundHints.push({
-                    x: normalizedX,
-                    y: normalizedY,
-                    width: normalizedWidth,
-                    height: normalizedHeight
-                });
-            }
-        }
-        
-        // Add prompt if available
-        const prompt = foregroundPrompt.value.trim();
-        if (prompt) {
-            console.log("Foreground prompt:", prompt);
-        }
-        
         const options = {
             progress: (instance, doneAmount, totalAmount) => {
                 const percentDone = Math.round((doneAmount / totalAmount) * 100);
                 toggleLoaderDisplay(true, `Isolating subject shapes... (${isNaN(percentDone) ? 0 : percentDone}%)`);
-            }
+            },
+            // Advanced AI control options
+            output_type: 'png', // Specify output type
+            post_process_mask: true, // Improve mask quality
+            mask_hint: null, // Additional mask guidance if needed
         };
         
-        // Add foreground hints if available
-        if (foregroundHints.length > 0) {
-            options.foreground_hints = foregroundHints;
+        // Add drawing-based foreground hints if requested
+        if (useDrawing && window.drawingCoordinates.length > 0) {
+            const foregroundHints = [];
+            
+            for (const coord of window.drawingCoordinates) {
+                if (coord.type === 'rectangle') {
+                    // Calculate normalized coordinates for the image size
+                    const scaleX = 1 / inputImage.naturalWidth;
+                    const scaleY = 1 / inputImage.naturalHeight;
+                    
+                    const normalizedX = Math.max(0, Math.min(1, coord.x * scaleX));
+                    const normalizedY = Math.max(0, Math.min(1, coord.y * scaleY));
+                    const normalizedWidth = Math.max(0, Math.min(1, coord.width * scaleX));
+                    const normalizedHeight = Math.max(0, Math.min(1, coord.height * scaleY));
+                    
+                    foregroundHints.push({ 
+                        x: normalizedX, 
+                        y: normalizedY, 
+                        width: normalizedWidth, 
+                        height: normalizedHeight 
+                    });
+                }
+            }
+            
+            if (foregroundHints.length > 0) {
+                options.foreground_hints = foregroundHints;
+            }
+        }
+        
+        // Add text prompt as additional guidance if available
+        const prompt = foregroundPrompt.value.trim();
+        if (prompt) {
+            // While the library doesn't directly support text prompts for this specific model,
+            // we can try to infer regions based on the prompt
+            console.log("Processing with prompt:", prompt);
+            
+            // This is where you'd add text-to-coordinates inference
+            // For now, we'll just log the prompt for future implementation
         }
         
         const outputResultBlob = await removeBackground(cleanPngBlob, options);
