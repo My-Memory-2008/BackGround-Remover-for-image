@@ -242,6 +242,8 @@
 
 
 
+
+
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // VISION ANALYSIS DOM ELEMENTS
@@ -412,52 +414,71 @@ async function enhanceImageWithDrawing(imageBlob, selectedAreas) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
         
-        // Get image data for manipulation
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        // Apply enhancement to selected areas
-        for (const area of selectedAreas) {
-            if (area.type === 'rectangle') {
-                const { x, y, width, height } = area;
-                
-                for (let py = Math.max(0, y); py < Math.min(canvas.height, y + height); py++) {
-                    for (let px = Math.max(0, x); px < Math.min(canvas.width, x + width); px++) {
-                        const idx = (py * canvas.width + px) * 4;
-                        
-                        // Enhance this specific area (brighten and sharpen)
-                        data[idx] = Math.min(255, data[idx] * 1.2);         // Red
-                        data[idx + 1] = Math.min(255, data[idx + 1] * 1.2); // Green
-                        data[idx + 2] = Math.min(255, data[idx + 2] * 1.2); // Blue
-                    }
-                }
-            } else if (area.type === 'freehand') {
-                // For freehand paths, we'll enhance pixels near the path
-                for (const point of area.points) {
-                    const { x, y } = point;
+        // Apply drawing overlay to the image
+        if (selectedAreas && selectedAreas.length > 0) {
+            ctx.globalCompositeOperation = 'source-over';
+            
+            for (const area of selectedAreas) {
+                if (area.type === 'rectangle') {
+                    const { x, y, width, height } = area;
                     
-                    // Enhance a small area around each point
-                    for (let dy = -3; dy <= 3; dy++) {
-                        for (let dx = -3; dx <= 3; dx++) {
-                            const px = x + dx;
-                            const py = y + dy;
-                            
-                            if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
-                                const idx = (py * canvas.width + px) * 4;
+                    // Draw rectangle with semi-transparent fill
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.3)'; // Semi-transparent purple
+                    ctx.fillRect(x, y, width, height);
+                    
+                    // Draw border
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x, y, width, height);
+                    
+                    // Enhance the area by adjusting brightness/contrast
+                    const imageData = ctx.getImageData(x, y, width, height);
+                    const data = imageData.data;
+                    
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.2);       // Red
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.2); // Green
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.2); // Blue
+                    }
+                    
+                    ctx.putImageData(imageData, x, y);
+                } else if (area.type === 'freehand') {
+                    // For freehand paths, we'll enhance pixels along the path
+                    for (const point of area.points) {
+                        const { x, y } = point;
+                        
+                        // Enhance a small area around each point
+                        for (let dy = -5; dy <= 5; dy++) {
+                            for (let dx = -5; dx <= 5; dx++) {
+                                const px = x + dx;
+                                const py = y + dy;
                                 
-                                // Enhance this specific area (brighten and sharpen)
-                                data[idx] = Math.min(255, data[idx] * 1.2);         // Red
-                                data[idx + 1] = Math.min(255, data[idx + 1] * 1.2); // Green
-                                data[idx + 2] = Math.min(255, data[idx + 2] * 1.2); // Blue
+                                if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
+                                    const imageData = ctx.getImageData(px, py, 1, 1);
+                                    const data = imageData.data;
+                                    
+                                    data[0] = Math.min(255, data[0] * 1.2); // Red
+                                    data[1] = Math.min(255, data[1] * 1.2); // Green
+                                    data[2] = Math.min(255, data[2] * 1.2); // Blue
+                                    
+                                    ctx.putImageData(imageData, px, py);
+                                }
                             }
                         }
                     }
+                    
+                    // Draw the path
+                    ctx.beginPath();
+                    ctx.moveTo(area.points[0].x, area.points[0].y);
+                    for (let i = 1; i < area.points.length; i++) {
+                        ctx.lineTo(area.points[i].x, area.points[i].y);
+                    }
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
                 }
             }
         }
-        
-        // Put the modified image data back to canvas
-        ctx.putImageData(imageData, 0, 0);
         
         // Convert canvas back to blob
         return new Promise((resolve) => {
@@ -620,10 +641,10 @@ function addDrawingToolsToImage() {
     
     const ctx = canvas.getContext('2d');
     ctx.strokeStyle = '#a855f7'; // Purple stroke for visibility
-    ctx.lineWidth = 3; // Thicker line for better visibility
+    ctx.lineWidth = 4; // Thicker line for better visibility
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)'; // Semi-transparent fill for rectangles
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.3)'; // Semi-transparent fill for rectangles
     
     // Drawing state
     let isDrawing = false;
@@ -692,10 +713,10 @@ function addDrawingToolsToImage() {
             
             // Redraw all previous rectangles with fill
             for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
                 ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
                 ctx.strokeStyle = '#a855f7';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 4;
                 ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
             }
             
@@ -703,10 +724,10 @@ function addDrawingToolsToImage() {
             const width = currentX - window.rectStartX;
             const height = currentY - window.rectStartY;
             
-            ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
             ctx.fillRect(window.rectStartX, window.rectStartY, width, height);
             ctx.strokeStyle = '#a855f7';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 4;
             ctx.strokeRect(window.rectStartX, window.rectStartY, width, height);
         }
     }
@@ -727,10 +748,10 @@ function addDrawingToolsToImage() {
             
             // Redraw all rectangles
             for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
                 ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
                 ctx.strokeStyle = '#a855f7';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 4;
                 ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
             }
             
@@ -743,7 +764,7 @@ function addDrawingToolsToImage() {
                         ctx.lineTo(path.points[i].x, path.points[i].y);
                     }
                     ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 4;
                     ctx.stroke();
                 }
             }
@@ -767,10 +788,10 @@ function addDrawingToolsToImage() {
                 
                 // Redraw all rectangles
                 for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
-                    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
                     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
                     ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 4;
                     ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
                 }
                 
@@ -783,7 +804,7 @@ function addDrawingToolsToImage() {
                             ctx.lineTo(path.points[i].x, path.points[i].y);
                         }
                         ctx.strokeStyle = '#a855f7';
-                        ctx.lineWidth = 3;
+                        ctx.lineWidth = 4;
                         ctx.stroke();
                     }
                 }
