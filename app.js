@@ -254,7 +254,6 @@ const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const urlInput = document.getElementById('url-input');
 const urlBtn = document.getElementById('url-btn');
-const foregroundPrompt = document.getElementById('foreground-prompt');
 
 const statusCard = document.getElementById('status-card');
 const statusText = document.getElementById('status-text');
@@ -272,38 +271,21 @@ const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
 // Drawing elements
+const drawBrushBtn = document.getElementById('draw-brush-btn');
 const drawRectBtn = document.getElementById('draw-rect-btn');
-const drawFreehandBtn = document.getElementById('draw-freehand-btn');
 const clearDrawBtn = document.getElementById('clear-draw-btn');
-const applyDrawingBtn = document.createElement('button');
-applyDrawingBtn.id = 'apply-drawing-btn';
-applyDrawingBtn.className = 'tool-btn apply-btn';
-applyDrawingBtn.textContent = 'Apply Drawing';
-applyDrawingBtn.style.marginLeft = 'auto';
-
-// New manual trigger button
-const removeBackgroundBtn = document.createElement('button');
-removeBackgroundBtn.id = 'remove-bg-btn';
-removeBackgroundBtn.className = 'tool-btn apply-btn';
-removeBackgroundBtn.textContent = 'Remove Background';
-removeBackgroundBtn.style.marginTop = '10px';
-removeBackgroundBtn.style.width = '100%';
-
+const removeBgBtn = document.getElementById('remove-bg-btn');
 const drawingCanvas = document.getElementById('drawing-canvas');
 
 // Drawing variables
 let isDrawing = false;
 let startX, startY;
-let currentTool = 'rectangle'; // Default to rectangle
+let currentTool = 'brush'; // Default to brush
 let currentPath = [];
-window.drawingCoordinates = []; // Store coordinates globally
+window.userDrawingMask = null; // Store user drawing mask
 
 // Set initial active state for drawing tools
-drawRectBtn.classList.add('active');
-
-// Add the apply button to the drawing controls
-document.querySelector('.drawing-controls').appendChild(applyDrawingBtn);
-document.querySelector('.drawing-controls').appendChild(removeBackgroundBtn);
+drawBrushBtn.classList.add('active');
 
 // Core Click Setup: Click the box area to activate browsing windows
 dropZone.addEventListener('click', () => fileInput.click());
@@ -375,51 +357,26 @@ urlBtn.addEventListener('click', async () => {
 });
 
 // Drawing tool event handlers
+drawBrushBtn.addEventListener('click', () => {
+    currentTool = 'brush';
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    drawBrushBtn.classList.add('active');
+});
+
 drawRectBtn.addEventListener('click', () => {
     currentTool = 'rectangle';
     document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
     drawRectBtn.classList.add('active');
 });
 
-drawFreehandBtn.addEventListener('click', () => {
-    currentTool = 'freehand';
-    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-    drawFreehandBtn.classList.add('active');
-});
-
 clearDrawBtn.addEventListener('click', () => {
     const ctx = drawingCanvas.getContext('2d');
     ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-    window.drawingCoordinates = [];
-    currentPath = [];
-});
-
-// Apply Drawing button event handler
-applyDrawingBtn.addEventListener('click', async () => {
-    if (!inputImage.src) {
-        showDiagnosticCrashCard(
-            "No Image Loaded",
-            "Image Required",
-            "Please upload an image first before applying drawing."
-        );
-        return;
-    }
-    
-    if (window.drawingCoordinates.length === 0) {
-        showDiagnosticCrashCard(
-            "No Drawing Areas",
-            "Selection Required",
-            "Please draw areas on the image that you want to keep before applying."
-        );
-        return;
-    }
-    
-    // Show that drawing has been applied
-    alert("Drawing coordinates saved! Click 'Remove Background' to process with these coordinates.");
+    window.userDrawingMask = null;
 });
 
 // Remove Background button event handler (Manual trigger)
-removeBackgroundBtn.addEventListener('click', async () => {
+removeBgBtn.addEventListener('click', async () => {
     if (!inputImage.src) {
         showDiagnosticCrashCard(
             "No Image Loaded",
@@ -470,14 +427,14 @@ function initializeDrawing() {
         startX = (e.clientX - rect.left) * scaleX;
         startY = (e.clientY - rect.top) * scaleY;
         
-        ctx.strokeStyle = '#a855f7';
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)'; // White for drawing mask
+        ctx.lineWidth = 20;
         ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
         
-        if (currentTool === 'freehand') {
+        if (currentTool === 'brush') {
             ctx.moveTo(startX, startY);
-            currentPath = [{ x: startX, y: startY }];
         } else if (currentTool === 'rectangle') {
             // For rectangle, we'll store the starting point
             window.rectStartX = startX;
@@ -495,35 +452,19 @@ function initializeDrawing() {
         const currentX = (e.clientX - rect.left) * scaleX;
         const currentY = (e.clientY - rect.top) * scaleY;
         
-        if (currentTool === 'freehand') {
+        if (currentTool === 'brush') {
             ctx.lineTo(currentX, currentY);
             ctx.stroke();
-            
-            currentPath.push({ x: currentX, y: currentY });
         } else if (currentTool === 'rectangle') {
             // Clear canvas and redraw
             ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
             
-            // Redraw all previously stored rectangles
-            for (const rect of window.drawingCoordinates) {
-                if (rect.type === 'rectangle') {
-                    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
-                    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-                    ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-                }
-            }
-            
-            // Draw current rectangle being drawn
+            // Draw the current rectangle being drawn
             const width = currentX - window.rectStartX;
             const height = currentY - window.rectStartY;
             
-            ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.fillRect(window.rectStartX, window.rectStartY, width, height);
-            ctx.strokeStyle = '#a855f7';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(window.rectStartX, window.rectStartY, width, height);
         }
     }
     
@@ -531,39 +472,7 @@ function initializeDrawing() {
         if (!isDrawing) return;
         isDrawing = false;
         
-        if (currentTool === 'freehand' && currentPath.length > 0) {
-            // Save the completed path
-            window.drawingCoordinates.push({
-                type: 'freehand',
-                points: [...currentPath]
-            });
-            
-            // Redraw all freehand paths
-            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-            
-            // Redraw all rectangles
-            for (const rect of window.drawingCoordinates.filter(area => area.type === 'rectangle')) {
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
-                ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-                ctx.strokeStyle = '#a855f7';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-            }
-            
-            // Redraw all freehand paths
-            for (const path of window.drawingCoordinates.filter(area => area.type === 'freehand')) {
-                if (path.points.length > 1) {
-                    ctx.beginPath();
-                    ctx.moveTo(path.points[0].x, path.points[0].y);
-                    for (let i = 1; i < path.points.length; i++) {
-                        ctx.lineTo(path.points[i].x, path.points[i].y);
-                    }
-                    ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 4;
-                    ctx.stroke();
-                }
-            }
-        } else if (currentTool === 'rectangle') {
+        if (currentTool === 'rectangle') {
             // Calculate rectangle dimensions
             const width = startX < currentX ? currentX - startX : startX - currentX;
             const height = startY < currentY ? currentY - startY : startY - currentY;
@@ -571,20 +480,10 @@ function initializeDrawing() {
             const y = startY < currentY ? startY : currentY;
             
             if (width > 10 && height > 10) { // Only add significant rectangles
-                window.drawingCoordinates.push({
-                    type: 'rectangle',
-                    x: x,
-                    y: y,
-                    width: width,
-                    height: height
-                });
-                
-                // Redraw to show permanent rectangle
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                // Draw the final rectangle
+                const ctx = drawingCanvas.getContext('2d');
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
                 ctx.fillRect(x, y, width, height);
-                ctx.strokeStyle = '#a855f7';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x, y, width, height);
             }
         }
     }
@@ -658,10 +557,6 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             outputImage.classList.add('opacity-dim');
             setDownloadButtonState(false);
 
-            // Reset drawing coordinates for this new image
-            window.drawingCoordinates = [];
-            currentPath = [];
-            
             // Clear the drawing canvas
             const ctx = drawingCanvas.getContext('2d');
             ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
@@ -680,10 +575,6 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             outputImage.src = ""; // Don't process yet
             outputImage.classList.add('opacity-dim');
             setDownloadButtonState(false);
-            
-            // Reset drawing coordinates for this new image
-            window.drawingCoordinates = [];
-            currentPath = [];
             
             // Clear the drawing canvas
             const ctx = drawingCanvas.getContext('2d');
@@ -707,48 +598,66 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
 async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
     toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
-        // Prepare foreground hints from drawing coordinates
-        let foregroundHints = [];
+        // Step 1: Run the AI model to get the automatic mask
+        const aiResultBlob = await removeBackground(cleanPngBlob);
         
-        // Convert drawing coordinates to normalized foreground hints
-        for (const coord of window.drawingCoordinates) {
-            if (coord.type === 'rectangle') {
-                // Calculate normalized coordinates for the image size
-                const scaleX = 1 / inputImage.naturalWidth;
-                const scaleY = 1 / inputImage.naturalHeight;
-                
-                const normalizedX = Math.max(0, Math.min(1, coord.x * scaleX));
-                const normalizedY = Math.max(0, Math.min(1, coord.y * scaleY));
-                const normalizedWidth = Math.max(0, Math.min(1, coord.width * scaleX));
-                const normalizedHeight = Math.max(0, Math.min(1, coord.height * scaleY));
-                
-                foregroundHints.push({ 
-                    x: normalizedX, 
-                    y: normalizedY, 
-                    width: normalizedWidth, 
-                    height: normalizedHeight 
-                });
+        // Step 2: Convert both original and AI result to image objects
+        const originalImage = await blobToImage(cleanPngBlob);
+        const aiResultImage = await blobToImage(aiResultBlob);
+        
+        // Step 3: Get the dimensions
+        const width = originalImage.naturalWidth;
+        const height = originalImage.naturalHeight;
+        
+        // Step 4: Create canvas to process the final image
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = width;
+        finalCanvas.height = height;
+        const finalCtx = finalCanvas.getContext('2d');
+        
+        // Step 5: Draw the original image
+        finalCtx.drawImage(originalImage, 0, 0, width, height);
+        const originalImageData = finalCtx.getImageData(0, 0, width, height);
+        
+        // Step 6: Draw the AI result to extract its alpha channel
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(aiResultImage, 0, 0, width, height);
+        const aiImageData = tempCtx.getImageData(0, 0, width, height);
+        
+        // Step 7: Draw the user's drawing mask from the drawing canvas
+        tempCtx.clearRect(0, 0, width, height);
+        // Scale the drawing canvas to match the image size
+        const drawingCtx = drawingCanvas.getContext('2d');
+        tempCtx.drawImage(drawingCanvas, 0, 0, width, height);
+        const userMaskData = tempCtx.getImageData(0, 0, width, height);
+        
+        // Step 8: Merge AI mask with user mask (Logical OR operation)
+        for (let i = 0; i < originalImageData.data.length; i += 4) {
+            const aiAlpha = aiImageData.data[i + 3];      // Transparency value from AI (0-255)
+            const userAlpha = userMaskData.data[i + 3];  // Transparency value from user drawing (0-255)
+            
+            // Logical OR condition: If AI kept it OR user painted over it, keep the original pixel
+            if (aiAlpha > 10 || userAlpha > 10) {
+                // Keep original pixel values unchanged (Visible)
+                originalImageData.data[i + 3] = 255; 
+            } else {
+                // Erase pixel entirely (Transparent background)
+                originalImageData.data[i + 3] = 0;   
             }
         }
         
-        // Add text prompt as additional guidance if available
-        const prompt = foregroundPrompt.value.trim();
-        if (prompt) {
-            console.log("Processing with prompt:", prompt);
-        }
+        // Step 9: Output the combined image data back onto the canvas
+        finalCtx.putImageData(originalImageData, 0, 0);
         
-        const options = {
-            progress: (instance, doneAmount, totalAmount) => {
-                const percentDone = Math.round((doneAmount / totalAmount) * 100);
-                toggleLoaderDisplay(true, `Isolating subject shapes... (${isNaN(percentDone) ? 0 : percentDone}%)`);
-            },
-            // According to the library documentation, foreground_hints is the correct parameter
-            foreground_hints: foregroundHints.length > 0 ? foregroundHints : undefined,
-        };
+        // Step 10: Create final blob and display result
+        const finalBlob = await new Promise(resolve => {
+            finalCanvas.toBlob(resolve, 'image/png');
+        });
         
-        const outputResultBlob = await removeBackground(cleanPngBlob, options);
-
-        const maskObjectURL = URL.createObjectURL(outputResultBlob);
+        const maskObjectURL = URL.createObjectURL(finalBlob);
         outputImage.src = maskObjectURL;
         outputImage.classList.remove('opacity-dim');
         
@@ -770,6 +679,15 @@ async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
         );
         toggleLoaderDisplay(false);
     }
+}
+
+// Helper utility to turn blob data into HTML Image objects
+function blobToImage(blob) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.src = URL.createObjectURL(blob);
+    });
 }
 
 function clearActiveErrors() {
