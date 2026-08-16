@@ -101,11 +101,12 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ClearCut.AI — Canvas Masking</title>
+    <title>ClearCut.AI — Canvas Masking (Fixed)</title>
     <style>
         body { background: #0a0f1d; color: white; font-family: sans-serif; padding: 20px; }
         .container { max-width: 900px; margin: 0 auto; }
@@ -123,7 +124,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>✅ Canvas Masking Background Remover</h1>
+    <h1>✅ Canvas Masking Background Remover (Fixed)</h1>
     <p>Draw over areas you want to KEEP (white), then click "Process".</p>
 
     <div class="drop-zone" id="drop-zone">Drag & drop image here or click to browse</div>
@@ -171,7 +172,10 @@ let userMaskCanvas, userMaskCtx;
 
 // Setup canvas to match image size (will be set after image loads)
 function setupCanvas() {
-    if (!img) return;
+    if (!img) {
+        status("❌ Cannot setup canvas: no image loaded");
+        return;
+    }
     canvasEl.width = img.naturalWidth;
     canvasEl.height = img.naturalHeight;
     ctx = canvasEl.getContext('2d');
@@ -183,15 +187,20 @@ function setupCanvas() {
     userMaskCtx = userMaskCanvas.getContext('2d');
     userMaskCtx.fillStyle = 'black';
     userMaskCtx.fillRect(0, 0, img.naturalWidth, img.naturalHeight);
+    status("✅ Canvas setup complete");
 }
 
 // Draw tools
 btnBrush.addEventListener('click', () => { tool = 'brush'; btnBrush.classList.add('active'); btnRect.classList.remove('active'); });
 btnRect.addEventListener('click', () => { tool = 'rect'; btnRect.classList.add('active'); btnBrush.classList.remove('active'); });
 btnClear.addEventListener('click', () => {
-    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-    userMaskCtx.fillStyle = 'black';
-    userMaskCtx.fillRect(0, 0, img.naturalWidth, img.naturalHeight);
+    if(ctx) {
+        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    }
+    if(userMaskCtx) {
+        userMaskCtx.fillStyle = 'black';
+        userMaskCtx.fillRect(0, 0, img.naturalWidth, img.naturalHeight);
+    }
     status('✓ Drawing cleared');
 });
 
@@ -227,7 +236,7 @@ function loadImg(url) {
     img.onload = () => {
         imgEl.src = url;
         imgEl.style.display = 'inline';
-        setupCanvas();
+        setupCanvas(); // Call setup AFTER image loads
         status('✅ Image loaded. Draw over areas to KEEP (white).');
     };
     img.onerror = () => status('❌ Failed to load image');
@@ -236,9 +245,13 @@ function loadImg(url) {
 
 // Drawing logic
 canvasEl.addEventListener('mousedown', e => {
-    if (!img) return;
+    if (!img) {
+        status("❌ Load an image first!");
+        return;
+    }
     drawing = true;
     const rect = canvasEl.getBoundingClientRect();
+    // Scale mouse coordinates to canvas coordinates
     const x = (e.clientX - rect.left) * (canvasEl.width / rect.width);
     const y = (e.clientY - rect.top) * (canvasEl.height / rect.height);
     
@@ -273,10 +286,11 @@ canvasEl.addEventListener('mousemove', e => {
         userMaskCtx.lineTo(x, y);
         userMaskCtx.stroke();
     } else if (tool === 'rect' && window.rectStart) {
+        // Temporarily clear and redraw for preview
         ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-        // Redraw existing
-        ctx.drawImage(canvasEl, 0, 0);
-        // Draw current rect
+        // Draw existing drawing if any (this is just for visual feedback during drawing)
+        // In a more complex scenario, you might store paths separately
+        // For now, just show the rectangle being drawn
         const w = x - window.rectStart.x;
         const h = y - window.rectStart.y;
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
@@ -292,24 +306,35 @@ canvasEl.addEventListener('mouseup', () => {
     drawing = false;
     
     if (tool === 'rect' && window.rectStart) {
-        const rect = canvasEl.getBoundingClientRect();
         const x = window.rectStart.x;
         const y = window.rectStart.y;
-        const w = (canvasEl.width / rect.width) * (rect.right - rect.left) - x;
-        const h = (canvasEl.height / rect.height) * (rect.bottom - rect.top) - y;
-        
+        // Calculate final width/height based on last mouse position
+        const rect = canvasEl.getBoundingClientRect();
+        const finalX = (canvasEl.width / rect.width) * (rect.right - rect.left);
+        const finalY = (canvasEl.height / rect.height) * (rect.bottom - rect.top);
+        const w = finalX - x;
+        const h = finalY - y;
+
         // Finalize rectangle on user mask
         userMaskCtx.fillStyle = 'white';
         userMaskCtx.fillRect(x, y, w, h);
+        // Draw final rectangle on drawing canvas too
+        ctx.fillStyle = 'white';
+        ctx.fillRect(x, y, w, h);
         status('✓ Rectangle added to keep zone');
         delete window.rectStart;
     }
 });
 
+
 // Process button
 btnProcess.addEventListener('click', async () => {
     if (!img) {
         status('❌ No image loaded');
+        return;
+    }
+    if (!userMaskCanvas) {
+        status('❌ Internal error: Canvas not initialized');
         return;
     }
 
@@ -328,12 +353,61 @@ btnProcess.addEventListener('click', async () => {
             const scaledCtx = scaledCanvas.getContext('2d');
             scaledCtx.drawImage(img, 0, 0, scaledCanvas.width, scaledCanvas.height);
             srcImg = await bitmapFromCanvas(scaledCanvas);
+             // Adjust user mask scale if needed (important!)
+             const scaledMaskCanvas = document.createElement('canvas');
+             scaledMaskCanvas.width = userMaskCanvas.width * scale;
+             scaledMaskCanvas.height = userMaskCanvas.height * scale;
+             const scaledMaskCtx = scaledMaskCanvas.getContext('2d');
+             scaledMaskCtx.drawImage(userMaskCanvas, 0, 0, scaledMaskCanvas.width, scaledMaskCanvas.height);
+             // Use scaled mask for processing
+             const aiBlob = await removeBackground(srcImg);
+             const aiImg = await blobToImage(aiBlob);
+
+             // Create final canvas for result
+             const finalCanvas = document.createElement('canvas');
+             finalCanvas.width = scaledCanvas.width;
+             finalCanvas.height = scaledCanvas.height;
+             const finalCtx = finalCanvas.getContext('2d');
+             finalCtx.drawImage(srcImg, 0, 0);
+
+             // Get pixel data from scaled sources
+             const origData = finalCtx.getImageData(0, 0, scaledCanvas.width, scaledCanvas.height);
+             const aiData = getCanvasImageData(aiImg, scaledCanvas.width, scaledCanvas.height);
+             const userMaskData = getCanvasImageData(scaledMaskCanvas, scaledCanvas.width, scaledCanvas.height);
+
+             // Check if data exists before accessing .data
+             if (!aiData || !aiData.data || !userMaskData || !userMaskData.data || !origData || !origData.data) {
+                 throw new Error("Failed to retrieve pixel data from AI result or user mask.");
+             }
+
+             // Step 3: Merge masks (Logical OR)
+             for (let i = 0; i < origData.data.length; i += 4) {
+                 const aiAlpha = aiData.data[i + 3];      // 0-255
+                 const userAlpha = userMaskData.data[i + 3]; // 0-255
+                 // Keep if AI OR user says "keep"
+                 origData.data[i + 3] = (aiAlpha > 30 || userAlpha > 30) ? 255 : 0;
+             }
+
+             finalCtx.putImageData(origData, 0, 0);
+
+             // Output
+             const resultBlob = await new Promise(resolve => {
+                 finalCanvas.toBlob(resolve, 'image/png');
+             });
+             const url = URL.createObjectURL(resultBlob);
+             downloadLink.href = url;
+             downloadLink.style.display = 'inline';
+             downloadLink.textContent = `📥 Download Scaled (${Math.round(resultBlob.size/1024)} KB)`;
+             status('✅ Done! Click download to save (scaled image).');
+             return; // Exit after processing scaled version
         }
 
+
+        // --- Process Original Size ---
         // Step 1: Run AI background removal
         status('🧠 Running AI background removal...');
         const aiBlob = await removeBackground(srcImg);
-        const aiImg = await blobToImage(aiBlob);
+        const aiImg = await blobToImage(aiBlob); // Convert AI result blob to image
 
         // Step 2: Create final canvas
         const finalCanvas = document.createElement('canvas');
@@ -346,8 +420,13 @@ btnProcess.addEventListener('click', async () => {
 
         // Get pixel data
         const origData = finalCtx.getImageData(0, 0, srcImg.naturalWidth, srcImg.naturalHeight);
-        const aiData = getCanvasImageData(aiImg, srcImg.naturalWidth, srcImg.naturalHeight);
-        const userMaskData = getCanvasImageData(userMaskCanvas, srcImg.naturalWidth, srcImg.naturalHeight);
+        const aiData = getCanvasImageData(aiImg, srcImg.naturalWidth, srcImg.naturalHeight); // Pass actual image dims
+        const userMaskData = getCanvasImageData(userMaskCanvas, srcImg.naturalWidth, srcImg.naturalHeight); // Pass actual image dims
+
+        // CHECK: Ensure data exists before accessing .data
+        if (!aiData || !aiData.data || !userMaskData || !userMaskData.data || !origData || !origData.data) {
+            throw new Error("Failed to retrieve pixel data from AI result or user mask.");
+        }
 
         // Step 3: Merge masks (Logical OR)
         for (let i = 0; i < origData.data.length; i += 4) {
@@ -371,7 +450,7 @@ btnProcess.addEventListener('click', async () => {
 
     } catch (err) {
         console.error(err);
-        status(`❌ Error: ${err.message || 'Unknown'}`);
+        status(`❌ Error: ${err.message || 'Unknown error during processing'}`);
     }
 });
 
@@ -389,19 +468,30 @@ function blobToImage(blob) {
     });
 }
 
-// Helper: Get image data from any source
+// Helper: Get image data from any source (Image, Canvas, etc.)
 function getCanvasImageData(source, w, h) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = w;
     tempCanvas.height = h;
     const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(source, 0, 0, w, h);
-    return tempCtx.getImageData(0, 0, w, h);
+    // IMPORTANT: Check if source is valid before drawing
+    if (!source || !tempCtx) {
+        console.error("Invalid source or context in getCanvasImageData");
+        return null; // Return null to signal failure
+    }
+    try {
+        tempCtx.drawImage(source, 0, 0, w, h);
+        return tempCtx.getImageData(0, 0, w, h);
+    } catch (e) {
+        console.error("Error drawing source in getCanvasImageData:", e);
+        return null; // Return null to signal failure
+    }
 }
 
 // Status helper
 function status(msg) {
     statusEl.textContent = msg;
+    console.log(msg); // Also log to console for debugging
 }
 
 // Initial state
