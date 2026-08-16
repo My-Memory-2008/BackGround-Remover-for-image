@@ -386,6 +386,8 @@ footer {
 
 
 
+
+
 /* Custom CSS Variables & Layout Reset */
 :root {
     --bg-main: #020617;
@@ -722,6 +724,7 @@ main {
     justify-content: center;
     overflow: hidden;
     border: 1px solid rgba(0,0,0,0.5);
+    position: relative;
 }
 
 .image-viewport.checkered {
@@ -838,6 +841,65 @@ footer {
     width: 100%;
 }
 
+/* Drawing Tools Styles */
+.drawing-tools {
+    margin: 16px 0;
+    padding: 12px;
+    background-color: rgba(15, 23, 42, 0.6);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.drawing-controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.tool-btn {
+    padding: 8px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.tool-btn:hover {
+    background: var(--accent-purple);
+    border-color: var(--accent-purple);
+    color: white;
+}
+
+.tool-btn.active {
+    background: var(--accent-purple);
+    border-color: var(--accent-purple);
+    color: white;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
+}
+
+.apply-btn {
+    background: linear-gradient(to right, var(--accent-purple), var(--accent-pink));
+    border: none;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+.apply-btn:hover {
+    opacity: 0.9;
+}
+
+#drawing-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
 @media (max-width: 640px) {
     .enhance-options {
         flex-direction: column;
@@ -861,6 +923,13 @@ footer {
         writing-mode: vertical-lr;
         transform: rotate(180deg);
     }
+    
+    .drawing-controls {
+        flex-direction: column;
+    }
+    
+    .tool-btn {
+        width: 100%;
+        text-align: center;
+    }
 }
-
-
