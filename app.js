@@ -611,6 +611,7 @@ function addDrawingToolsToImage() {
     canvas.style.top = '0';
     canvas.style.left = '0';
     canvas.style.pointerEvents = 'auto';
+    canvas.style.cursor = 'crosshair';
     
     // Position the canvas relative to the image container
     const imageContainer = visionInputImage.parentElement;
@@ -618,10 +619,11 @@ function addDrawingToolsToImage() {
     imageContainer.appendChild(canvas);
     
     const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#a855f7';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#a855f7'; // Purple stroke for visibility
+    ctx.lineWidth = 3; // Thicker line for better visibility
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)'; // Semi-transparent fill for rectangles
     
     // Drawing state
     let isDrawing = false;
@@ -658,6 +660,8 @@ function addDrawingToolsToImage() {
         
         if (currentTool === 'freehand') {
             currentPath = [{x: lastX, y: lastY}];
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
         } else if (currentTool === 'rectangle') {
             // For rectangle, we'll store the starting point
             window.rectStartX = lastX;
@@ -676,8 +680,6 @@ function addDrawingToolsToImage() {
         const currentY = (e.clientY - rect.top) * scaleY;
         
         if (currentTool === 'freehand') {
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
             ctx.lineTo(currentX, currentY);
             ctx.stroke();
             
@@ -685,17 +687,26 @@ function addDrawingToolsToImage() {
             lastX = currentX;
             lastY = currentY;
         } else if (currentTool === 'rectangle') {
-            // Clear the canvas to redraw the rectangle
+            // Clear the canvas to redraw everything
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Redraw all previous rectangles
+            // Redraw all previous rectangles with fill
             for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 2;
                 ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
             }
             
             // Draw the current rectangle being drawn
             const width = currentX - window.rectStartX;
             const height = currentY - window.rectStartY;
+            
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+            ctx.fillRect(window.rectStartX, window.rectStartY, width, height);
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2;
             ctx.strokeRect(window.rectStartX, window.rectStartY, width, height);
         }
     }
@@ -710,6 +721,32 @@ function addDrawingToolsToImage() {
                 type: 'freehand',
                 points: [...currentPath]
             });
+            
+            // Redraw all freehand paths
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Redraw all rectangles
+            for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+            }
+            
+            // Redraw all freehand paths
+            for (const path of window.selectedAreas.filter(area => area.type === 'freehand')) {
+                if (path.points.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(path.points[0].x, path.points[0].y);
+                    for (let i = 1; i < path.points.length; i++) {
+                        ctx.lineTo(path.points[i].x, path.points[i].y);
+                    }
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+            }
         } else if (currentTool === 'rectangle') {
             // Calculate rectangle dimensions
             const width = lastX - window.rectStartX;
@@ -725,13 +762,31 @@ function addDrawingToolsToImage() {
                     height: Math.abs(height)
                 });
                 
-                // Draw the final rectangle
-                ctx.strokeRect(
-                    Math.min(window.rectStartX, lastX),
-                    Math.min(window.rectStartY, lastY),
-                    Math.abs(width),
-                    Math.abs(height)
-                );
+                // Redraw all rectangles to show them permanently
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Redraw all rectangles
+                for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                }
+                
+                // Redraw all freehand paths
+                for (const path of window.selectedAreas.filter(area => area.type === 'freehand')) {
+                    if (path.points.length > 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(path.points[0].x, path.points[0].y);
+                        for (let i = 1; i < path.points.length; i++) {
+                            ctx.lineTo(path.points[i].x, path.points[i].y);
+                        }
+                        ctx.strokeStyle = '#a855f7';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    }
+                }
             }
         }
     }
