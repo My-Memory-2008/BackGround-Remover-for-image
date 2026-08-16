@@ -790,58 +790,6 @@ footer {
     font-family: inherit;
 }
 
-.enhance-options {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin: 16px 0;
-}
-
-.enhance-btn {
-    flex: 1;
-    min-width: 150px;
-    background: linear-gradient(to right, #3b82f6, #8b5cf6);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    padding: 12px;
-    font-weight: 700;
-    font-size: 0.8rem;
-    cursor: pointer;
-}
-
-.enhance-btn:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-}
-
-/* Divider between sections */
-.divider-section {
-    display: flex;
-    align-items: center;
-    margin: 40px 0;
-    justify-content: center;
-}
-
-.divider-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(to right, transparent, var(--border-color), transparent);
-    max-width: 200px;
-}
-
-.divider-text {
-    padding: 0 16px;
-    color: var(--text-muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-}
-
-.tool-section {
-    width: 100%;
-}
-
 /* Drawing Tools Styles */
 .drawing-tools {
     margin: 16px 0;
@@ -850,7 +798,6 @@ footer {
     border-radius: 12px;
     border: 1px solid var(--border-color);
 }
-
 
 .drawing-controls {
     display: flex;
@@ -882,51 +829,7 @@ footer {
     box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
 }
 
-.apply-btn {
-    background: linear-gradient(to right, var(--accent-purple), var(--accent-pink));
-    border: none;
-    font-weight: 600;
-    margin-left: auto;
-}
-
-.apply-btn:hover {
-    opacity: 0.9;
-}
-
-#drawing-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    cursor: crosshair;
-    z-index: 10;
-}
-
 @media (max-width: 640px) {
-    .enhance-options {
-        flex-direction: column;
-    }
-    
-    .enhance-btn {
-        width: 100%;
-    }
-    
-    .divider-section {
-        flex-direction: column;
-        gap: 16px;
-    }
-    
-    .divider-line {
-        width: 100%;
-        max-width: none;
-    }
-    
-    .divider-text {
-        writing-mode: vertical-lr;
-        transform: rotate(180deg);
-    }
-    
     .drawing-controls {
         flex-direction: column;
     }
