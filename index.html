@@ -102,6 +102,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -173,7 +174,7 @@ let userMaskCanvas, userMaskCtx;
 // Setup canvas to match image size (will be set after image loads)
 function setupCanvas() {
     if (!img) {
-        status("❌ Cannot setup canvas: no image loaded");
+        status('❌ Cannot setup canvas: no image loaded');
         return;
     }
     canvasEl.width = img.naturalWidth;
@@ -187,7 +188,7 @@ function setupCanvas() {
     userMaskCtx = userMaskCanvas.getContext('2d');
     userMaskCtx.fillStyle = 'black';
     userMaskCtx.fillRect(0, 0, img.naturalWidth, img.naturalHeight);
-    status("✅ Canvas setup complete");
+    status('✅ Canvas setup complete');
 }
 
 // Draw tools
@@ -377,7 +378,7 @@ btnProcess.addEventListener('click', async () => {
 
              // Check if data exists before accessing .data
              if (!aiData || !aiData.data || !userMaskData || !userMaskData.data || !origData || !origData.data) {
-                 throw new Error("Failed to retrieve pixel data from AI result or user mask.");
+                 throw new Error("Failed to retrieve pixel data from AI result (" + !!aiData + ") or user mask (" + !!userMaskData + ").");
              }
 
              // Step 3: Merge masks (Logical OR)
@@ -425,7 +426,7 @@ btnProcess.addEventListener('click', async () => {
 
         // CHECK: Ensure data exists before accessing .data
         if (!aiData || !aiData.data || !userMaskData || !userMaskData.data || !origData || !origData.data) {
-            throw new Error("Failed to retrieve pixel data from AI result or user mask.");
+            throw new Error("Failed to retrieve pixel data from AI result (" + !!aiData + ") or user mask (" + !!userMaskData + ").");
         }
 
         // Step 3: Merge masks (Logical OR)
@@ -480,8 +481,14 @@ function getCanvasImageData(source, w, h) {
         return null; // Return null to signal failure
     }
     try {
-        tempCtx.drawImage(source, 0, 0, w, h);
-        return tempCtx.getImageData(0, 0, w, h);
+        // Ensure the source is an Image, ImageBitmap, or Canvas before drawing
+        if (source instanceof HTMLImageElement || source instanceof HTMLCanvasElement || source instanceof ImageBitmap) {
+            tempCtx.drawImage(source, 0, 0, w, h);
+            return tempCtx.getImageData(0, 0, w, h);
+        } else {
+             console.error("Invalid source type for drawImage in getCanvasImageData:", typeof source);
+             return null;
+        }
     } catch (e) {
         console.error("Error drawing source in getCanvasImageData:", e);
         return null; // Return null to signal failure
