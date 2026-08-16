@@ -239,6 +239,9 @@
 
 
 
+
+
+
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // VISION ANALYSIS DOM ELEMENTS
@@ -286,6 +289,23 @@ const errorBadge = document.getElementById('error-badge');
 const errorDesc = document.getElementById('error-desc');
 const errorTrace = document.getElementById('error-trace');
 
+// Drawing tool elements
+const drawRectBtn = document.getElementById('draw-rect-btn');
+const drawFreehandBtn = document.getElementById('draw-freehand-btn');
+const clearDrawBtn = document.getElementById('clear-draw-btn');
+const applyEnhancementBtn = document.getElementById('apply-enhancement-btn');
+
+// Drawing variables
+let isDrawing = false;
+let startX, startY;
+let currentTool = 'rectangle'; // Default tool
+let currentPath = [];
+let drawnPaths = []; // For freehand paths
+let drawnRectangles = []; // For rectangles
+
+// Set initial active state for drawing tools
+drawRectBtn.classList.add('active');
+
 // VISION ANALYSIS EVENT HANDLERS - EXACTLY LIKE YOUR ORIGINAL WORKING CODE
 visionDropZone.addEventListener('click', () => visionFileInput.click());
 
@@ -324,9 +344,56 @@ visionDropZone.addEventListener('drop', (e) => {
     }
 });
 
-// Advanced vision enhancement function with semantic understanding
-async function enhanceImageWithVision(imageBlob, prompt = "") {
-    toggleVisionLoaderDisplay(true, "Understanding your request and enhancing image...");
+// Drawing tool event handlers
+drawRectBtn.addEventListener('click', () => {
+    currentTool = 'rectangle';
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    drawRectBtn.classList.add('active');
+});
+
+drawFreehandBtn.addEventListener('click', () => {
+    currentTool = 'freehand';
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    drawFreehandBtn.classList.add('active');
+});
+
+clearDrawBtn.addEventListener('click', () => {
+    const canvas = document.getElementById('drawing-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawnPaths = [];
+        drawnRectangles = [];
+        window.selectedAreas = [];
+    }
+});
+
+applyEnhancementBtn.addEventListener('click', async () => {
+    if(!window.currentVisionBlob) {
+        showVisionDiagnosticCrashCard(
+            "No Image Selected", 
+            "Upload Required",
+            "Please upload an image first before applying enhancement."
+        );
+        return;
+    }
+    
+    if (!window.selectedAreas || window.selectedAreas.length === 0) {
+        showVisionDiagnosticCrashCard(
+            "No Areas Selected",
+            "Selection Required",
+            "Please select areas on the image using the drawing tools before applying enhancement."
+        );
+        return;
+    }
+    
+    const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, window.selectedAreas);
+    displayVisionResults(window.currentVisionBlob, enhancedBlob);
+});
+
+// Vision enhancement function with drawing tool support
+async function enhanceImageWithDrawing(imageBlob, selectedAreas) {
+    toggleVisionLoaderDisplay(true, "Applying enhancement to selected areas...");
     
     try {
         // Create a canvas to process the image
@@ -349,173 +416,41 @@ async function enhanceImageWithVision(imageBlob, prompt = "") {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         
-        // Parse the prompt to determine what to enhance
-        const promptLower = prompt.toLowerCase();
-        
-        // Define regions based on common image compositions
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const quarterWidth = canvas.width / 4;
-        const quarterHeight = canvas.height / 4;
-        
-        // Process the image based on the semantic understanding of the prompt
-        if (promptLower.includes('face') || promptLower.includes('person') || promptLower.includes('character')) {
-            // Enhance the face/person area (top half or center)
-            for (let y = 0; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x++) {
-                    const dx = x - centerX;
-                    const dy = y - centerY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    const idx = (y * canvas.width + x) * 4;
-                    
-                    // Only enhance if it's likely a person area (center/top)
-                    if (y < canvas.height * 0.7 && distance < canvas.width * 0.4) {
-                        // Brighten faces
+        // Apply enhancement to selected areas
+        for (const area of selectedAreas) {
+            if (area.type === 'rectangle') {
+                const { x, y, width, height } = area;
+                
+                for (let py = Math.max(0, y); py < Math.min(canvas.height, y + height); py++) {
+                    for (let px = Math.max(0, x); px < Math.min(canvas.width, x + width); px++) {
+                        const idx = (py * canvas.width + px) * 4;
+                        
+                        // Enhance this specific area (brighten and sharpen)
                         data[idx] = Math.min(255, data[idx] * 1.2);         // Red
                         data[idx + 1] = Math.min(255, data[idx + 1] * 1.2); // Green
                         data[idx + 2] = Math.min(255, data[idx + 2] * 1.2); // Blue
                     }
                 }
-            }
-        } else if (promptLower.includes('background') || promptLower.includes('backdrop') || promptLower.includes('scene')) {
-            // Enhance background areas (not the center where people usually are)
-            for (let y = 0; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x++) {
-                    const dx = x - centerX;
-                    const dy = y - centerY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
+            } else if (area.type === 'freehand') {
+                // For freehand paths, we'll enhance pixels near the path
+                for (const point of area.points) {
+                    const { x, y } = point;
                     
-                    const idx = (y * canvas.width + x) * 4;
-                    
-                    // Only enhance background areas (away from center)
-                    if (distance > canvas.width * 0.3) {
-                        // Enhance background colors
-                        data[idx] = Math.min(255, data[idx] * 1.1);         // Red
-                        data[idx + 1] = Math.min(255, data[idx + 1] * 1.1); // Green
-                        data[idx + 2] = Math.min(255, data[idx + 2] * 1.1); // Blue
-                    }
-                }
-            }
-        } else if (promptLower.includes('sky') || promptLower.includes('clouds') || promptLower.includes('blue')) {
-            // Enhance sky areas (usually top portion)
-            for (let y = 0; y < canvas.height * 0.6; y++) {
-                for (let x = 0; x < canvas.width; x++) {
-                    const idx = (y * canvas.width + x) * 4;
-                    
-                    // Enhance blue tones for sky
-                    data[idx + 2] = Math.min(255, data[idx + 2] * 1.2); // Enhance blue
-                }
-            }
-        } else if (promptLower.includes('grass') || promptLower.includes('green') || promptLower.includes('nature')) {
-            // Enhance green tones in lower portions (grass/nature)
-            for (let y = canvas.height * 0.4; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x++) {
-                    const idx = (y * canvas.width + x) * 4;
-                    
-                    // Enhance green tones
-                    data[idx + 1] = Math.min(255, data[idx + 1] * 1.2); // Enhance green
-                }
-            }
-        } else if (promptLower.includes('water') || promptLower.includes('ocean') || promptLower.includes('sea')) {
-            // Enhance blue/cyan tones in water areas
-            for (let y = canvas.height * 0.6; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x++) {
-                    const idx = (y * canvas.width + x) * 4;
-                    
-                    // Enhance blue and cyan tones
-                    data[idx + 1] = Math.min(255, data[idx + 1] * 1.1); // Green
-                    data[idx + 2] = Math.min(255, data[idx + 2] * 1.2); // Blue
-                }
-            }
-        } else if (promptLower.includes('brighten') || promptLower.includes('light') || promptLower.includes('lighter')) {
-            // Overall brightening
-            for (let i = 0; i < data.length; i += 4) {
-                data[i] = Math.min(255, data[i] * 1.2);       // Red
-                data[i + 1] = Math.min(255, data[i + 1] * 1.2); // Green
-                data[i + 2] = Math.min(255, data[i + 2] * 1.2); // Blue
-            }
-        } else if (promptLower.includes('darken') || promptLower.includes('darker')) {
-            // Overall darkening
-            for (let i = 0; i < data.length; i += 4) {
-                data[i] = Math.max(0, data[i] * 0.8);       // Red
-                data[i + 1] = Math.max(0, data[i + 1] * 0.8); // Green
-                data[i + 2] = Math.max(0, data[i + 2] * 0.8); // Blue
-            }
-        } else if (promptLower.includes('sharpen') || promptLower.includes('sharp')) {
-            // Apply a simple sharpening effect
-            const width = canvas.width;
-            const height = canvas.height;
-            
-            // Create a copy of the original data
-            const originalData = new Uint8ClampedArray(data);
-            
-            // Apply a simple sharpening kernel
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    for (let c = 0; c < 3; c++) { // R, G, B
-                        const idx = (y * width + x) * 4 + c;
-                        
-                        // Apply sharpening kernel
-                        let sum = originalData[idx] * 5;
-                        sum -= originalData[(y * width + (x - 1)) * 4 + c]; // Left
-                        sum -= originalData[(y * width + (x + 1)) * 4 + c]; // Right
-                        sum -= originalData[((y - 1) * width + x) * 4 + c]; // Top
-                        sum -= originalData[((y + 1) * width + x) * 4 + c]; // Bottom
-                        
-                        data[idx] = Math.min(255, Math.max(0, sum));
-                    }
-                }
-            }
-        } else if (promptLower.includes('contrast') || promptLower.includes('more contrast')) {
-            // Increase contrast
-            const factor = 1.3;
-            for (let i = 0; i < data.length; i += 4) {
-                data[i] = Math.min(255, Math.max(0, 128 + factor * (data[i] - 128)));       // Red
-                data[i + 1] = Math.min(255, Math.max(0, 128 + factor * (data[i + 1] - 128))); // Green
-                data[i + 2] = Math.min(255, Math.max(0, 128 + factor * (data[i + 2] - 128))); // Blue
-            }
-        } else if (promptLower.includes('saturation') || promptLower.includes('color') || promptLower.includes('colors')) {
-            // Increase saturation
-            for (let i = 0; i < data.length; i += 4) {
-                // Convert to HSV-like representation to adjust saturation
-                const r = data[i] / 255;
-                const g = data[i + 1] / 255;
-                const b = data[i + 2] / 255;
-                
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                const delta = max - min;
-                
-                if (delta > 0) {
-                    const s = delta / max;
-                    const newS = Math.min(1, s * 1.5); // Increase saturation by 50%
-                    
-                    // Apply new saturation
-                    const newR = Math.min(255, Math.max(0, r * newS * 255));
-                    const newG = Math.min(255, Math.max(0, g * newS * 255));
-                    const newB = Math.min(255, Math.max(0, b * newS * 255));
-                    
-                    data[i] = newR;
-                    data[i + 1] = newG;
-                    data[i + 2] = newB;
-                }
-            }
-        } else {
-            // Default enhancement - subtle improvements to the main subject
-            for (let y = 0; y < canvas.height; y++) {
-                for (let x = 0; x < canvas.width; x++) {
-                    const dx = x - centerX;
-                    const dy = y - centerY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    const idx = (y * canvas.width + x) * 4;
-                    
-                    // Apply subtle enhancements to center area (likely to contain the main subject)
-                    if (distance < canvas.width * 0.5) {
-                        data[idx] = Math.min(255, data[idx] * 1.1);         // Red
-                        data[idx + 1] = Math.min(255, data[idx + 1] * 1.1); // Green
-                        data[idx + 2] = Math.min(255, data[idx + 2] * 1.1); // Blue
+                    // Enhance a small area around each point
+                    for (let dy = -3; dy <= 3; dy++) {
+                        for (let dx = -3; dx <= 3; dx++) {
+                            const px = x + dx;
+                            const py = y + dy;
+                            
+                            if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
+                                const idx = (py * canvas.width + px) * 4;
+                                
+                                // Enhance this specific area (brighten and sharpen)
+                                data[idx] = Math.min(255, data[idx] * 1.2);         // Red
+                                data[idx + 1] = Math.min(255, data[idx + 1] * 1.2); // Green
+                                data[idx + 2] = Math.min(255, data[idx + 2] * 1.2); // Blue
+                            }
+                        }
                     }
                 }
             }
@@ -556,7 +491,8 @@ autoEnhanceBtn.addEventListener('click', async () => {
         return;
     }
     
-    const enhancedBlob = await enhanceImageWithVision(window.currentVisionBlob);
+    // Apply enhancement to the entire image
+    const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, [{type: 'rectangle', x: 0, y: 0, width: 100, height: 100}]);
     displayVisionResults(window.currentVisionBlob, enhancedBlob);
 });
 
@@ -570,18 +506,17 @@ enhanceWithPromptBtn.addEventListener('click', async () => {
         return;
     }
     
-    const prompt = visionPrompt.value.trim();
-    if(!prompt) {
+    // Apply enhancement to selected areas
+    if (window.selectedAreas && window.selectedAreas.length > 0) {
+        const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, window.selectedAreas);
+        displayVisionResults(window.currentVisionBlob, enhancedBlob);
+    } else {
         showVisionDiagnosticCrashCard(
-            "Prompt Required",
-            "No Description Provided",
-            "Please enter a description of what to focus on for enhancement (try: brighten face, enhance sky, improve background, increase contrast, sharpen person)."
+            "No Areas Selected",
+            "Selection Required",
+            "Please select areas on the image using the drawing tools before applying enhancement."
         );
-        return;
     }
-    
-    const enhancedBlob = await enhanceImageWithVision(window.currentVisionBlob, prompt);
-    displayVisionResults(window.currentVisionBlob, enhancedBlob);
 });
 
 // Vision processing function - EXACTLY LIKE YOUR ORIGINAL WORKING CODE
@@ -627,6 +562,9 @@ async function processVisionTargetBlob(incomingFileOrBlob) {
             // Store the blob for potential enhancement
             window.currentVisionBlob = compiledPngBlob;
             
+            // Add drawing tools after the image is loaded
+            addDrawingToolsToImage();
+            
             toggleVisionLoaderDisplay(false);
         }, 'image/png');
 
@@ -637,6 +575,10 @@ async function processVisionTargetBlob(incomingFileOrBlob) {
             visionPreviewSection.classList.remove('hidden');
             visionInputImage.src = rawDirectUrl;
             window.currentVisionBlob = incomingFileOrBlob;
+            
+            // Add drawing tools after the image is loaded
+            addDrawingToolsToImage();
+            
             toggleVisionLoaderDisplay(false);
         } catch (finalCrashState) {
             showVisionDiagnosticCrashCard(
@@ -647,6 +589,177 @@ async function processVisionTargetBlob(incomingFileOrBlob) {
             );
             toggleVisionLoaderDisplay(false);
         }
+    }
+}
+
+// Function to add drawing tools to the image
+function addDrawingToolsToImage() {
+    const imageElement = visionInputImage;
+    
+    // Remove existing drawing canvas if present
+    const existingCanvas = document.getElementById('drawing-canvas');
+    if (existingCanvas) {
+        existingCanvas.remove();
+    }
+    
+    // Create a canvas overlay for drawing
+    const canvas = document.createElement('canvas');
+    canvas.id = 'drawing-canvas';
+    canvas.width = imageElement.naturalWidth || imageElement.width;
+    canvas.height = imageElement.naturalHeight || imageElement.height;
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.pointerEvents = 'auto';
+    
+    // Position the canvas relative to the image container
+    const imageContainer = visionInputImage.parentElement;
+    imageContainer.style.position = 'relative';
+    imageContainer.appendChild(canvas);
+    
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // Drawing state
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    currentPath = [];
+    
+    // Initialize selected areas array
+    if (!window.selectedAreas) {
+        window.selectedAreas = [];
+    }
+    
+    // Mouse events for drawing
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    
+    // Touch events for mobile
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchmove', handleTouchMove);
+    canvas.addEventListener('touchend', handleTouchEnd);
+    
+    function startDrawing(e) {
+        e.preventDefault();
+        isDrawing = true;
+        
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        lastX = (e.clientX - rect.left) * scaleX;
+        lastY = (e.clientY - rect.top) * scaleY;
+        
+        if (currentTool === 'freehand') {
+            currentPath = [{x: lastX, y: lastY}];
+        } else if (currentTool === 'rectangle') {
+            // For rectangle, we'll store the starting point
+            window.rectStartX = lastX;
+            window.rectStartY = lastY;
+        }
+    }
+    
+    function draw(e) {
+        if (!isDrawing) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        const currentX = (e.clientX - rect.left) * scaleX;
+        const currentY = (e.clientY - rect.top) * scaleY;
+        
+        if (currentTool === 'freehand') {
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+            
+            currentPath.push({x: currentX, y: currentY});
+            lastX = currentX;
+            lastY = currentY;
+        } else if (currentTool === 'rectangle') {
+            // Clear the canvas to redraw the rectangle
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Redraw all previous rectangles
+            for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
+                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+            }
+            
+            // Draw the current rectangle being drawn
+            const width = currentX - window.rectStartX;
+            const height = currentY - window.rectStartY;
+            ctx.strokeRect(window.rectStartX, window.rectStartY, width, height);
+        }
+    }
+    
+    function stopDrawing(e) {
+        if (!isDrawing) return;
+        isDrawing = false;
+        
+        if (currentTool === 'freehand' && currentPath.length > 0) {
+            // Save the completed path
+            window.selectedAreas.push({
+                type: 'freehand',
+                points: [...currentPath]
+            });
+        } else if (currentTool === 'rectangle') {
+            // Calculate rectangle dimensions
+            const width = lastX - window.rectStartX;
+            const height = lastY - window.rectStartY;
+            
+            // Only save if the rectangle is significant (not just a click)
+            if (Math.abs(width) > 10 && Math.abs(height) > 10) {
+                window.selectedAreas.push({
+                    type: 'rectangle',
+                    x: Math.min(window.rectStartX, lastX),
+                    y: Math.min(window.rectStartY, lastY),
+                    width: Math.abs(width),
+                    height: Math.abs(height)
+                });
+                
+                // Draw the final rectangle
+                ctx.strokeRect(
+                    Math.min(window.rectStartX, lastX),
+                    Math.min(window.rectStartY, lastY),
+                    Math.abs(width),
+                    Math.abs(height)
+                );
+            }
+        }
+    }
+    
+    function handleTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousedown', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        canvas.dispatchEvent(mouseEvent);
+    }
+    
+    function handleTouchMove(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousemove', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        canvas.dispatchEvent(mouseEvent);
+    }
+    
+    function handleTouchEnd(e) {
+        e.preventDefault();
+        const mouseEvent = new MouseEvent('mouseup', {});
+        canvas.dispatchEvent(mouseEvent);
     }
 }
 
