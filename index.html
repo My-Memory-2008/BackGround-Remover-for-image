@@ -103,406 +103,253 @@
 
 
 
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ClearCut.AI — Canvas Masking (Fixed)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Background Eraser & Keeper</title>
+    <!-- Import Google MediaPipe Vision Library Tasks -->
+    <script src="https://jsdelivr.net" crossorigin="anonymous"></script>
     <style>
-        body { background: #0a0f1d; color: white; font-family: sans-serif; padding: 20px; }
-        .container { max-width: 900px; margin: 0 auto; }
-        .drop-zone {
-            border: 2px dashed #444; padding: 40px; text-align: center;
-            cursor: pointer; margin-bottom: 20px;
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 20px;
         }
-        #drawing-canvas { position: absolute; top: 0; left: 0; z-index: 10; }
-        .controls { display: flex; gap: 10px; margin: 15px 0; }
-        button { padding: 8px 16px; background: #222; border: 1px solid #444; color: white; }
-        button.active { background: #a855f7; }
-        .preview { position: relative; display: inline-block; }
-        .status { color: #a855f7; margin: 10px 0; }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+            max-width: 90vw;
+            border: 2px dashed #444;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        /* Layers stacked exactly over each other */
+        #sourceImage {
+            display: block;
+            max-width: 600px;
+            height: auto;
+        }
+        #interactionCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+        .controls {
+            margin: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        button, input[type="file"] {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+        }
+        button:disabled {
+            background-color: #444;
+            cursor: not-allowed;
+        }
+        #status {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        #resultCanvas {
+            margin-top: 20px;
+            border: 2px solid #28a745;
+            background-image: linear-gradient(45deg, #222 25%, transparent 25%), 
+                              linear-gradient(-45deg, #222 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #222 75%), 
+                              linear-gradient(-45deg, transparent 75%, #222 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>✅ Canvas Masking Background Remover (Fixed)</h1>
-    <p>Draw over areas you want to KEEP (white), then click "Process".</p>
 
-    <div class="drop-zone" id="drop-zone">Drag & drop image here or click to browse</div>
-    <input type="file" id="file-input" accept="image/*" style="display:none">
+    <h1>AI Interactive Object Keeper</h1>
+    <p>Upload an image. <strong>Click or Draw lines</strong> on the main subject AND things like text ("Chloe") to force the AI to keep them!</p>
 
-    <div class="controls">
-        <button id="btn-brush" class="active">✏️ Brush</button>
-        <button id="btn-rect">▭ Rectangle</button>
-        <button id="btn-clear">🗑️ Clear</button>
-        <button id="btn-process">▶️ Process</button>
+    <div class="container">
+        <input type="file" id="fileUpload" accept="image/*">
+        <div id="status">Loading AI Engine...</div>
+
+        <div class="image-wrapper">
+            <img id="sourceImage" src="" alt="Upload an image to begin" style="display:none;">
+            <canvas id="interactionCanvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <button id="clearBtn" disabled>Clear Clicks</button>
+            <button id="processBtn" disabled>Extract Selection (Cutout)</button>
+        </div>
+
+        <h3>Output Result:</h3>
+        <canvas id="resultCanvas" width="0" height="0"></canvas>
     </div>
 
-    <div class="status" id="status"></div>
+<script>
+    // Grab UI Elements
+    const fileUpload = document.getElementById('fileUpload');
+    const sourceImage = document.getElementById('sourceImage');
+    const interactionCanvas = document.getElementById('interactionCanvas');
+    const interCtx = interactionCanvas.getContext('2d');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const resCtx = resultCanvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    const clearBtn = document.getElementById('clearBtn');
+    const processBtn = document.getElementById('processBtn');
 
-    <div class="preview" id="preview">
-        <img id="img" style="max-width: 100%; display: none;">
-        <canvas id="drawing-canvas"></canvas>
-    </div>
+    let interactiveSegmenter;
+    let clickPoints = []; // Stores user mouse actions
 
-    <div style="margin-top: 20px;">
-        <a id="download-link" download="cutout.png" style="display:none;">📥 Download Result</a>
-    </div>
-</div>
-
-<script type="module">
-import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
-
-// DOM elements
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const imgEl = document.getElementById('img');
-const canvasEl = document.getElementById('drawing-canvas');
-const preview = document.getElementById('preview');
-const statusEl = document.getElementById('status');
-const downloadLink = document.getElementById('download-link');
-
-const btnBrush = document.getElementById('btn-brush');
-const btnRect = document.getElementById('btn-rect');
-const btnClear = document.getElementById('btn-clear');
-const btnProcess = document.getElementById('btn-process');
-
-// State
-let ctx, img, drawing = false, tool = 'brush';
-let userMaskCanvas, userMaskCtx;
-
-// Setup canvas to match image size (will be set after image loads)
-function setupCanvas() {
-    if (!img) {
-        status('❌ Cannot setup canvas: no image loaded');
-        return;
+    // 1. Initialize Google MediaPipe Interactive Segmenter Model Natively
+    async function initAI() {
+        try {
+            const vision = await FilesetResolver.forVisionTasks(
+                "https://jsdelivr.net"
+            );
+            
+            interactiveSegmenter = await InteractiveSegmenter.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: "https://googleapis.com",
+                    delegate: "GPU" // Uses WebGL acceleration dynamically
+                },
+                outputCategoryMask: true,
+                outputConfidenceMask: false
+            });
+            
+            statusDiv.innerText = "AI Engine Ready! Please upload your photo.";
+        } catch (error) {
+            statusDiv.innerText = "Initialization failed. Run this file via a local server.";
+            console.error(error);
+        }
     }
-    canvasEl.width = img.naturalWidth;
-    canvasEl.height = img.naturalHeight;
-    ctx = canvasEl.getContext('2d');
-    
-    // User mask canvas (for merging later)
-    userMaskCanvas = document.createElement('canvas');
-    userMaskCanvas.width = img.naturalWidth;
-    userMaskCanvas.height = img.naturalHeight;
-    userMaskCtx = userMaskCanvas.getContext('2d');
-    userMaskCtx.fillStyle = 'black';
-    userMaskCtx.fillRect(0, 0, img.naturalWidth, img.naturalHeight);
-    status('✅ Canvas setup complete');
-}
+    initAI();
 
-// Draw tools
-btnBrush.addEventListener('click', () => { tool = 'brush'; btnBrush.classList.add('active'); btnRect.classList.remove('active'); });
-btnRect.addEventListener('click', () => { tool = 'rect'; btnRect.classList.add('active'); btnBrush.classList.remove('active'); });
-btnClear.addEventListener('click', () => {
-    if(ctx) {
-        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-    }
-    if(userMaskCtx) {
-        userMaskCtx.fillStyle = 'black';
-        userMaskCtx.fillRect(0, 0, img.naturalWidth, img.naturalHeight);
-    }
-    status('✓ Drawing cleared');
-});
+    // 2. Handle Image Upload & Scaling
+    fileUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-// Drag & Drop / File Input
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    loadImg(URL.createObjectURL(file));
-});
-
-['dragenter', 'dragover'].forEach(ev => {
-    dropZone.addEventListener(ev, e => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#a855f7';
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            sourceImage.src = event.target.result;
+            sourceImage.style.display = "block";
+            
+            sourceImage.onload = () => {
+                // Uniformly sync the interactive display canvas size with the image scaling
+                interactionCanvas.width = sourceImage.clientWidth;
+                interactionCanvas.height = sourceImage.clientHeight;
+                
+                // Clear any leftover data points
+                clickPoints = [];
+                interCtx.clearRect(0, 0, interactionCanvas.width, interactionCanvas.height);
+                
+                clearBtn.disabled = false;
+                processBtn.disabled = false;
+                statusDiv.innerText = "Click/Tap on ALL items you want to keep (e.g. background text & foreground subject).";
+            };
+        };
+        reader.readAsDataURL(file);
     });
-});
-['dragleave', 'drop'].forEach(ev => {
-    dropZone.addEventListener(ev, e => {
-        e.preventDefault();
-        dropZone.style.borderColor = '';
-        if (ev === 'drop' && e.dataTransfer.files[0]) {
-            const file = e.dataTransfer.files[0];
-            loadImg(URL.createObjectURL(file));
-        }
+
+    // 3. Register user selection points on the canvas layer
+    interactionCanvas.addEventListener('click', (e) => {
+        const rect = interactionCanvas.getBoundingClientRect();
+        // Compute normalized coordinate ratio scale needed by the AI runtime (0.0 to 1.0)
+        const clickX = (e.clientX - rect.left) / interactionCanvas.width;
+        const clickY = (e.clientY - rect.top) / interactionCanvas.height;
+
+        // Save selection details
+        clickPoints.push({ x: clickX, y: clickY });
+
+        // Draw a glowing visual anchor marker where the user targeted
+        interCtx.fillStyle = '#00ffcc';
+        interCtx.beginPath();
+        interCtx.arc(e.clientX - rect.left, e.clientY - rect.top, 6, 0, 2 * Math.PI);
+        interCtx.fill();
     });
-});
 
-// Load image
-function loadImg(url) {
-    status('⏳ Loading image...');
-    img = new Image();
-    img.onload = () => {
-        imgEl.src = url;
-        imgEl.style.display = 'inline';
-        setupCanvas(); // Call setup AFTER image loads
-        status('✅ Image loaded. Draw over areas to KEEP (white).');
-    };
-    img.onerror = () => status('❌ Failed to load image');
-    img.src = url;
-}
-
-// Drawing logic
-canvasEl.addEventListener('mousedown', e => {
-    if (!img) {
-        status("❌ Load an image first!");
-        return;
-    }
-    drawing = true;
-    const rect = canvasEl.getBoundingClientRect();
-    // Scale mouse coordinates to canvas coordinates
-    const x = (e.clientX - rect.left) * (canvasEl.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvasEl.height / rect.height);
-    
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 20;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    if (tool === 'brush') {
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-    } else if (tool === 'rect') {
-        window.rectStart = {x, y};
-    }
-});
-
-canvasEl.addEventListener('mousemove', e => {
-    if (!drawing || !img) return;
-    const rect = canvasEl.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvasEl.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvasEl.height / rect.height);
-    
-    if (tool === 'brush') {
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        // Update user mask
-        userMaskCtx.strokeStyle = 'white';
-        userMaskCtx.lineWidth = 20;
-        userMaskCtx.lineCap = 'round';
-        userMaskCtx.beginPath();
-        userMaskCtx.moveTo(x, y);
-        userMaskCtx.lineTo(x, y);
-        userMaskCtx.stroke();
-    } else if (tool === 'rect' && window.rectStart) {
-        // Temporarily clear and redraw for preview
-        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-        // Draw existing drawing if any (this is just for visual feedback during drawing)
-        // In a more complex scenario, you might store paths separately
-        // For now, just show the rectangle being drawn
-        const w = x - window.rectStart.x;
-        const h = y - window.rectStart.y;
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.fillRect(window.rectStart.x, window.rectStart.y, w, h);
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(window.rectStart.x, window.rectStart.y, w, h);
-    }
-});
-
-canvasEl.addEventListener('mouseup', () => {
-    if (!drawing || !img) return;
-    drawing = false;
-    
-    if (tool === 'rect' && window.rectStart) {
-        const x = window.rectStart.x;
-        const y = window.rectStart.y;
-        // Calculate final width/height based on last mouse position
-        const rect = canvasEl.getBoundingClientRect();
-        const finalX = (canvasEl.width / rect.width) * (rect.right - rect.left);
-        const finalY = (canvasEl.height / rect.height) * (rect.bottom - rect.top);
-        const w = finalX - x;
-        const h = finalY - y;
-
-        // Finalize rectangle on user mask
-        userMaskCtx.fillStyle = 'white';
-        userMaskCtx.fillRect(x, y, w, h);
-        // Draw final rectangle on drawing canvas too
-        ctx.fillStyle = 'white';
-        ctx.fillRect(x, y, w, h);
-        status('✓ Rectangle added to keep zone');
-        delete window.rectStart;
-    }
-});
-
-
-// Process button
-btnProcess.addEventListener('click', async () => {
-    if (!img) {
-        status('❌ No image loaded');
-        return;
-    }
-    if (!userMaskCanvas) {
-        status('❌ Internal error: Canvas not initialized');
-        return;
-    }
-
-    try {
-        status('⏳ Processing... (downscaling if needed)');
-        
-        // ⚠️ Critical: Downscale large images to avoid OOM
-        const MAX_DIM = 1500;
-        let srcImg = img;
-        let scale = 1;
-        if (img.naturalWidth > MAX_DIM || img.naturalHeight > MAX_DIM) {
-            scale = Math.min(MAX_DIM / img.naturalWidth, MAX_DIM / img.naturalHeight);
-            const scaledCanvas = document.createElement('canvas');
-            scaledCanvas.width = img.naturalWidth * scale;
-            scaledCanvas.height = img.naturalHeight * scale;
-            const scaledCtx = scaledCanvas.getContext('2d');
-            scaledCtx.drawImage(img, 0, 0, scaledCanvas.width, scaledCanvas.height);
-            srcImg = await bitmapFromCanvas(scaledCanvas);
-             // Adjust user mask scale if needed (important!)
-             const scaledMaskCanvas = document.createElement('canvas');
-             scaledMaskCanvas.width = userMaskCanvas.width * scale;
-             scaledMaskCanvas.height = userMaskCanvas.height * scale;
-             const scaledMaskCtx = scaledMaskCanvas.getContext('2d');
-             scaledMaskCtx.drawImage(userMaskCanvas, 0, 0, scaledMaskCanvas.width, scaledMaskCanvas.height);
-             // Use scaled mask for processing
-             const aiBlob = await removeBackground(srcImg);
-             const aiImg = await blobToImage(aiBlob);
-
-             // Create final canvas for result
-             const finalCanvas = document.createElement('canvas');
-             finalCanvas.width = scaledCanvas.width;
-             finalCanvas.height = scaledCanvas.height;
-             const finalCtx = finalCanvas.getContext('2d');
-             finalCtx.drawImage(srcImg, 0, 0);
-
-             // Get pixel data from scaled sources
-             const origData = finalCtx.getImageData(0, 0, scaledCanvas.width, scaledCanvas.height);
-             const aiData = getCanvasImageData(aiImg, scaledCanvas.width, scaledCanvas.height);
-             const userMaskData = getCanvasImageData(scaledMaskCanvas, scaledCanvas.width, scaledCanvas.height);
-
-             // Check if data exists before accessing .data
-             if (!aiData || !aiData.data || !userMaskData || !userMaskData.data || !origData || !origData.data) {
-                 throw new Error("Failed to retrieve pixel data from AI result (" + !!aiData + ") or user mask (" + !!userMaskData + ").");
-             }
-
-             // Step 3: Merge masks (Logical OR)
-             for (let i = 0; i < origData.data.length; i += 4) {
-                 const aiAlpha = aiData.data[i + 3];      // 0-255
-                 const userAlpha = userMaskData.data[i + 3]; // 0-255
-                 // Keep if AI OR user says "keep"
-                 origData.data[i + 3] = (aiAlpha > 30 || userAlpha > 30) ? 255 : 0;
-             }
-
-             finalCtx.putImageData(origData, 0, 0);
-
-             // Output
-             const resultBlob = await new Promise(resolve => {
-                 finalCanvas.toBlob(resolve, 'image/png');
-             });
-             const url = URL.createObjectURL(resultBlob);
-             downloadLink.href = url;
-             downloadLink.style.display = 'inline';
-             downloadLink.textContent = `📥 Download Scaled (${Math.round(resultBlob.size/1024)} KB)`;
-             status('✅ Done! Click download to save (scaled image).');
-             return; // Exit after processing scaled version
-        }
-
-
-        // --- Process Original Size ---
-        // Step 1: Run AI background removal
-        status('🧠 Running AI background removal...');
-        const aiBlob = await removeBackground(srcImg);
-        const aiImg = await blobToImage(aiBlob); // Convert AI result blob to image
-
-        // Step 2: Create final canvas
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = srcImg.naturalWidth;
-        finalCanvas.height = srcImg.naturalHeight;
-        const finalCtx = finalCanvas.getContext('2d');
-
-        // Draw original image
-        finalCtx.drawImage(srcImg, 0, 0);
-
-        // Get pixel data
-        const origData = finalCtx.getImageData(0, 0, srcImg.naturalWidth, srcImg.naturalHeight);
-        const aiData = getCanvasImageData(aiImg, srcImg.naturalWidth, srcImg.naturalHeight); // Pass actual image dims
-        const userMaskData = getCanvasImageData(userMaskCanvas, srcImg.naturalWidth, srcImg.naturalHeight); // Pass actual image dims
-
-        // CHECK: Ensure data exists before accessing .data
-        if (!aiData || !aiData.data || !userMaskData || !userMaskData.data || !origData || !origData.data) {
-            throw new Error("Failed to retrieve pixel data from AI result (" + !!aiData + ") or user mask (" + !!userMaskData + ").");
-        }
-
-        // Step 3: Merge masks (Logical OR)
-        for (let i = 0; i < origData.data.length; i += 4) {
-            const aiAlpha = aiData.data[i + 3];      // 0-255
-            const userAlpha = userMaskData.data[i + 3]; // 0-255
-            // Keep if AI OR user says "keep"
-            origData.data[i + 3] = (aiAlpha > 30 || userAlpha > 30) ? 255 : 0;
-        }
-
-        finalCtx.putImageData(origData, 0, 0);
-
-        // Step 4: Output
-        const resultBlob = await new Promise(resolve => {
-            finalCanvas.toBlob(resolve, 'image/png');
-        });
-        const url = URL.createObjectURL(resultBlob);
-        downloadLink.href = url;
-        downloadLink.style.display = 'inline';
-        downloadLink.textContent = `📥 Download (${Math.round(resultBlob.size/1024)} KB)`;
-        status('✅ Done! Click download to save.');
-
-    } catch (err) {
-        console.error(err);
-        status(`❌ Error: ${err.message || 'Unknown error during processing'}`);
-    }
-});
-
-// Helper: Convert canvas to ImageBitmap
-async function bitmapFromCanvas(canvas) {
-    return createImageBitmap(canvas);
-}
-
-// Helper: Convert blob to Image
-function blobToImage(blob) {
-    return new Promise(resolve => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.src = URL.createObjectURL(blob);
+    // Reset controls
+    clearBtn.addEventListener('click', () => {
+        clickPoints = [];
+        interCtx.clearRect(0, 0, interactionCanvas.width, interactionCanvas.height);
+        statusDiv.innerText = "Points cleared. Click again to specify targets.";
     });
-}
 
-// Helper: Get image data from any source (Image, Canvas, etc.)
-function getCanvasImageData(source, w, h) {
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = w;
-    tempCanvas.height = h;
-    const tempCtx = tempCanvas.getContext('2d');
-    // IMPORTANT: Check if source is valid before drawing
-    if (!source || !tempCtx) {
-        console.error("Invalid source or context in getCanvasImageData");
-        return null; // Return null to signal failure
-    }
-    try {
-        // Ensure the source is an Image, ImageBitmap, or Canvas before drawing
-        if (source instanceof HTMLImageElement || source instanceof HTMLCanvasElement || source instanceof ImageBitmap) {
-            tempCtx.drawImage(source, 0, 0, w, h);
-            return tempCtx.getImageData(0, 0, w, h);
-        } else {
-             console.error("Invalid source type for drawImage in getCanvasImageData:", typeof source);
-             return null;
+    // 4. Fire Interactive Segmentation Inference Core Pipeline
+    processBtn.addEventListener('click', async () => {
+        if (clickPoints.length === 0) {
+            alert("Please make at least one click point on your subject or text before running!");
+            return;
         }
-    } catch (e) {
-        console.error("Error drawing source in getCanvasImageData:", e);
-        return null; // Return null to signal failure
-    }
-}
 
-// Status helper
-function status(msg) {
-    statusEl.textContent = msg;
-    console.log(msg); // Also log to console for debugging
-}
+        statusDiv.innerText = "AI is computing your customized mask...";
 
-// Initial state
-status('👉 Upload an image to begin');
+        // Set up execution dimensions
+        const originWidth = sourceImage.naturalWidth;
+        const originHeight = sourceImage.naturalHeight;
+        resultCanvas.width = originWidth;
+        resultCanvas.height = originHeight;
+
+        // Create an aggregated master mask 
+        const masterAlphaBuffer = new Uint8Array(originWidth * originHeight).fill(0);
+
+        // Run an inference block loop for every coordinate provided by the developer/user
+        for (let pt of clickPoints) {
+            // MediaPipe processes one coordinate layout instruction per call block
+            const poi = { keypoint: { x: pt.x, y: pt.y } };
+            
+            await new Promise((resolve) => {
+                interactiveSegmenter.segment(sourceImage, poi, (result) => {
+                    const maskData = result.categoryMask.getAsUint8Array();
+                    
+                    // Logical OR combination: Merge pixel selections 
+                    for (let i = 0; i < maskData.length; i++) {
+                        if (maskData[i] > 0) {
+                            masterAlphaBuffer[i] = 255;
+                        }
+                    }
+                    resolve();
+                });
+            });
+        }
+
+        // 5. Blending Output Canvas Rendering
+        // Paint down raw original texture image properties
+        resCtx.drawImage(sourceImage, 0, 0, originWidth, originHeight);
+        const frameData = resCtx.getImageData(0, 0, originWidth, originHeight);
+
+        // Inject combined structural alpha channel information across matching indices
+        for (let i = 0; i < masterAlphaBuffer.length; i++) {
+            const pixelAlphaIndex = (i * 4) + 3;
+            // Map categorical visibility output arrays onto base frame properties
+            frameData.data[pixelAlphaIndex] = masterAlphaBuffer[i];
+        }
+
+        // Draw structural output composition onto final UI layout frame
+        resCtx.putImageData(frameData, 0, 0);
+        statusDiv.innerText = "Done! Combined segments extracted successfully.";
+    });
 </script>
 </body>
 </html>
