@@ -244,6 +244,8 @@
 
 
 
+
+
 import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
 
 // VISION ANALYSIS DOM ELEMENTS
@@ -297,16 +299,17 @@ const drawFreehandBtn = document.getElementById('draw-freehand-btn');
 const clearDrawBtn = document.getElementById('clear-draw-btn');
 const applyEnhancementBtn = document.getElementById('apply-enhancement-btn');
 
+// Drawing canvases
+const visionDrawCanvas = document.getElementById('vision-drawing-canvas');
+const mainDrawCanvas = document.getElementById('drawing-canvas');
+
 // Drawing variables
 let isDrawing = false;
-let startX, startY;
-let currentTool = 'rectangle'; // Default tool
-let currentPath = [];
-let drawnPaths = []; // For freehand paths
-let drawnRectangles = []; // For rectangles
+let currentTool = 'freehand'; // Default to freehand
+let pointCoordinatesArray = []; // Stores the shape path data to pass to the AI engine
 
 // Set initial active state for drawing tools
-drawRectBtn.classList.add('active');
+drawFreehandBtn.classList.add('active');
 
 // VISION ANALYSIS EVENT HANDLERS - EXACTLY LIKE YOUR ORIGINAL WORKING CODE
 visionDropZone.addEventListener('click', () => visionFileInput.click());
@@ -360,14 +363,9 @@ drawFreehandBtn.addEventListener('click', () => {
 });
 
 clearDrawBtn.addEventListener('click', () => {
-    const canvas = document.getElementById('drawing-canvas');
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawnPaths = [];
-        drawnRectangles = [];
-        window.selectedAreas = [];
-    }
+    const drawCtx = visionDrawCanvas.getContext('2d');
+    drawCtx.clearRect(0, 0, visionDrawCanvas.width, visionDrawCanvas.height);
+    pointCoordinatesArray = [];
 });
 
 applyEnhancementBtn.addEventListener('click', async () => {
@@ -380,7 +378,7 @@ applyEnhancementBtn.addEventListener('click', async () => {
         return;
     }
     
-    if (!window.selectedAreas || window.selectedAreas.length === 0) {
+    if (pointCoordinatesArray.length === 0) {
         showVisionDiagnosticCrashCard(
             "No Areas Selected",
             "Selection Required",
@@ -389,12 +387,12 @@ applyEnhancementBtn.addEventListener('click', async () => {
         return;
     }
     
-    const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, window.selectedAreas);
+    const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, pointCoordinatesArray);
     displayVisionResults(window.currentVisionBlob, enhancedBlob);
 });
 
 // Vision enhancement function with drawing tool support
-async function enhanceImageWithDrawing(imageBlob, selectedAreas) {
+async function enhanceImageWithDrawing(imageBlob, coordinatesArray) {
     toggleVisionLoaderDisplay(true, "Applying enhancement to selected areas...");
     
     try {
@@ -414,69 +412,41 @@ async function enhanceImageWithDrawing(imageBlob, selectedAreas) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
         
-        // Apply drawing overlay to the image
-        if (selectedAreas && selectedAreas.length > 0) {
-            ctx.globalCompositeOperation = 'source-over';
+        // Calculate bounding box from coordinates
+        if (coordinatesArray.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             
-            for (const area of selectedAreas) {
-                if (area.type === 'rectangle') {
-                    const { x, y, width, height } = area;
-                    
-                    // Draw rectangle with semi-transparent fill
-                    ctx.fillStyle = 'rgba(168, 85, 247, 0.3)'; // Semi-transparent purple
-                    ctx.fillRect(x, y, width, height);
-                    
-                    // Draw border
-                    ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(x, y, width, height);
-                    
-                    // Enhance the area by adjusting brightness/contrast
-                    const imageData = ctx.getImageData(x, y, width, height);
-                    const data = imageData.data;
-                    
-                    for (let i = 0; i < data.length; i += 4) {
-                        data[i] = Math.min(255, data[i] * 1.2);       // Red
-                        data[i + 1] = Math.min(255, data[i + 1] * 1.2); // Green
-                        data[i + 2] = Math.min(255, data[i + 2] * 1.2); // Blue
-                    }
-                    
-                    ctx.putImageData(imageData, x, y);
-                } else if (area.type === 'freehand') {
-                    // For freehand paths, we'll enhance pixels along the path
-                    for (const point of area.points) {
-                        const { x, y } = point;
-                        
-                        // Enhance a small area around each point
-                        for (let dy = -5; dy <= 5; dy++) {
-                            for (let dx = -5; dx <= 5; dx++) {
-                                const px = x + dx;
-                                const py = y + dy;
-                                
-                                if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
-                                    const imageData = ctx.getImageData(px, py, 1, 1);
-                                    const data = imageData.data;
-                                    
-                                    data[0] = Math.min(255, data[0] * 1.2); // Red
-                                    data[1] = Math.min(255, data[1] * 1.2); // Green
-                                    data[2] = Math.min(255, data[2] * 1.2); // Blue
-                                    
-                                    ctx.putImageData(imageData, px, py);
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Draw the path
-                    ctx.beginPath();
-                    ctx.moveTo(area.points[0].x, area.points[0].y);
-                    for (let i = 1; i < area.points.length; i++) {
-                        ctx.lineTo(area.points[i].x, area.points[i].y);
-                    }
-                    ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 4;
-                    ctx.stroke();
+            for (const point of coordinatesArray) {
+                minX = Math.min(minX, point.x);
+                minY = Math.min(minY, point.y);
+                maxX = Math.max(maxX, point.x);
+                maxY = Math.max(maxY, point.y);
+            }
+            
+            // Convert normalized coordinates back to actual image coordinates
+            const scaleX = img.width / visionDrawCanvas.width;
+            const scaleY = img.height / visionDrawCanvas.height;
+            
+            const actualMinX = Math.floor(minX * scaleX);
+            const actualMinY = Math.floor(minY * scaleY);
+            const actualMaxX = Math.ceil(maxX * scaleX);
+            const actualMaxY = Math.ceil(maxY * scaleY);
+            
+            // Enhance the area by adjusting brightness/contrast
+            const width = actualMaxX - actualMinX;
+            const height = actualMaxY - actualMinY;
+            
+            if (width > 0 && height > 0) {
+                const imageData = ctx.getImageData(actualMinX, actualMinY, width, height);
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i] = Math.min(255, data[i] * 1.3);       // Red
+                    data[i + 1] = Math.min(255, data[i + 1] * 1.3); // Green
+                    data[i + 2] = Math.min(255, data[i + 2] * 1.3); // Blue
                 }
+                
+                ctx.putImageData(imageData, actualMinX, actualMinY);
             }
         }
         
@@ -513,7 +483,7 @@ autoEnhanceBtn.addEventListener('click', async () => {
     }
     
     // Apply enhancement to the entire image
-    const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, [{type: 'rectangle', x: 0, y: 0, width: 100, height: 100}]);
+    const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, []);
     displayVisionResults(window.currentVisionBlob, enhancedBlob);
 });
 
@@ -528,8 +498,8 @@ enhanceWithPromptBtn.addEventListener('click', async () => {
     }
     
     // Apply enhancement to selected areas
-    if (window.selectedAreas && window.selectedAreas.length > 0) {
-        const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, window.selectedAreas);
+    if (pointCoordinatesArray.length > 0) {
+        const enhancedBlob = await enhanceImageWithDrawing(window.currentVisionBlob, pointCoordinatesArray);
         displayVisionResults(window.currentVisionBlob, enhancedBlob);
     } else {
         showVisionDiagnosticCrashCard(
@@ -583,8 +553,8 @@ async function processVisionTargetBlob(incomingFileOrBlob) {
             // Store the blob for potential enhancement
             window.currentVisionBlob = compiledPngBlob;
             
-            // Add drawing tools after the image is loaded
-            addDrawingToolsToImage();
+            // Initialize drawing for the vision canvas
+            initializeDrawing(visionDrawCanvas);
             
             toggleVisionLoaderDisplay(false);
         }, 'image/png');
@@ -597,8 +567,8 @@ async function processVisionTargetBlob(incomingFileOrBlob) {
             visionInputImage.src = rawDirectUrl;
             window.currentVisionBlob = incomingFileOrBlob;
             
-            // Add drawing tools after the image is loaded
-            addDrawingToolsToImage();
+            // Initialize drawing for the vision canvas
+            initializeDrawing(visionDrawCanvas);
             
             toggleVisionLoaderDisplay(false);
         } catch (finalCrashState) {
@@ -613,206 +583,124 @@ async function processVisionTargetBlob(incomingFileOrBlob) {
     }
 }
 
-// Function to add drawing tools to the image
-function addDrawingToolsToImage() {
-    const imageElement = visionInputImage;
-    
-    // Remove existing drawing canvas if present
-    const existingCanvas = document.getElementById('drawing-canvas');
-    if (existingCanvas) {
-        existingCanvas.remove();
-    }
-    
-    // Create a canvas overlay for drawing
-    const canvas = document.createElement('canvas');
-    canvas.id = 'drawing-canvas';
-    canvas.width = imageElement.naturalWidth || imageElement.width;
-    canvas.height = imageElement.naturalHeight || imageElement.height;
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.pointerEvents = 'auto';
-    canvas.style.cursor = 'crosshair';
-    
-    // Position the canvas relative to the image container
-    const imageContainer = visionInputImage.parentElement;
-    imageContainer.style.position = 'relative';
-    imageContainer.appendChild(canvas);
+// Function to initialize drawing for a canvas
+function initializeDrawing(canvas) {
+    if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#a855f7'; // Purple stroke for visibility
-    ctx.lineWidth = 4; // Thicker line for better visibility
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.fillStyle = 'rgba(168, 85, 247, 0.3)'; // Semi-transparent fill for rectangles
-    
-    // Drawing state
     let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-    currentPath = [];
-    
-    // Initialize selected areas array
-    if (!window.selectedAreas) {
-        window.selectedAreas = [];
-    }
-    
-    // Mouse events for drawing
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-    
-    // Touch events for mobile
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchmove', handleTouchMove);
-    canvas.addEventListener('touchend', handleTouchEnd);
-    
-    function startDrawing(e) {
-        e.preventDefault();
+    let startX, startY;
+    let rectStartX, rectStartY;
+    pointCoordinatesArray = [];
+
+    // Resize the tracking layer to match the visual box boundaries
+    const resizeCanvasLayer = () => {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    };
+    window.addEventListener('resize', resizeCanvasLayer);
+    resizeCanvasLayer(); // Initial resize
+
+    // Track mouse / Touch interactions
+    canvas.addEventListener('mousedown', (e) => {
         isDrawing = true;
+        resizeCanvasLayer();
+        ctx.strokeStyle = '#a855f7'; // Bright Neon Purple line
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
         
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
+        const x = (e.clientX - rect.left) / canvas.offsetWidth * canvas.width;
+        const y = (e.clientY - rect.top) / canvas.offsetHeight * canvas.height;
         
-        lastX = (e.clientX - rect.left) * scaleX;
-        lastY = (e.clientY - rect.top) * scaleY;
-        
-        if (currentTool === 'freehand') {
-            currentPath = [{x: lastX, y: lastY}];
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-        } else if (currentTool === 'rectangle') {
-            // For rectangle, we'll store the starting point
-            window.rectStartX = lastX;
-            window.rectStartY = lastY;
+        if (currentTool === 'rectangle') {
+            startX = x;
+            startY = y;
+            rectStartX = x;
+            rectStartY = y;
+        } else {
+            ctx.moveTo(x, y);
+            pointCoordinatesArray.push({ x, y });
         }
-    }
-    
-    function draw(e) {
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
         if (!isDrawing) return;
-        
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        
-        const currentX = (e.clientX - rect.left) * scaleX;
-        const currentY = (e.clientY - rect.top) * scaleY;
+        const x = (e.clientX - rect.left) / canvas.offsetWidth * canvas.width;
+        const y = (e.clientY - rect.top) / canvas.offsetHeight * canvas.height;
         
         if (currentTool === 'freehand') {
-            ctx.lineTo(currentX, currentY);
+            ctx.lineTo(x, y);
             ctx.stroke();
-            
-            currentPath.push({x: currentX, y: currentY});
-            lastX = currentX;
-            lastY = currentY;
+            pointCoordinatesArray.push({ x, y });
         } else if (currentTool === 'rectangle') {
-            // Clear the canvas to redraw everything
+            // Clear and redraw to show the current rectangle being drawn
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Redraw all previous rectangles with fill
-            for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
-                ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+            // Redraw existing shapes
+            if (pointCoordinatesArray.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(pointCoordinatesArray[0].x, pointCoordinatesArray[0].y);
+                for (let i = 1; i < pointCoordinatesArray.length; i++) {
+                    ctx.lineTo(pointCoordinatesArray[i].x, pointCoordinatesArray[i].y);
+                }
                 ctx.strokeStyle = '#a855f7';
                 ctx.lineWidth = 4;
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                ctx.stroke();
             }
             
             // Draw the current rectangle being drawn
-            const width = currentX - window.rectStartX;
-            const height = currentY - window.rectStartY;
+            const width = x - rectStartX;
+            const height = y - rectStartY;
             
-            ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
-            ctx.fillRect(window.rectStartX, window.rectStartY, width, height);
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+            ctx.fillRect(rectStartX, rectStartY, width, height);
             ctx.strokeStyle = '#a855f7';
             ctx.lineWidth = 4;
-            ctx.strokeRect(window.rectStartX, window.rectStartY, width, height);
+            ctx.strokeRect(rectStartX, rectStartY, width, height);
         }
-    }
-    
-    function stopDrawing(e) {
+    });
+
+    window.addEventListener('mouseup', () => {
         if (!isDrawing) return;
         isDrawing = false;
         
-        if (currentTool === 'freehand' && currentPath.length > 0) {
-            // Save the completed path
-            window.selectedAreas.push({
-                type: 'freehand',
-                points: [...currentPath]
-            });
+        if (currentTool === 'rectangle') {
+            const rect = canvas.getBoundingClientRect();
+            const x = (rect.right - rect.left) / canvas.offsetWidth * canvas.width;
+            const y = (rect.bottom - rect.top) / canvas.height;
             
-            // Redraw all freehand paths
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const width = x - startX;
+            const height = y - startY;
             
-            // Redraw all rectangles
-            for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
-                ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
-                ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+            if (Math.abs(width) > 10 && Math.abs(height) > 10) {
+                // Add rectangle as a series of points for the bounding box
+                const points = [
+                    {x: startX, y: startY},
+                    {x: x, y: startY},
+                    {x: x, y: y},
+                    {x: startX, y: y},
+                    {x: startX, y: startY}
+                ];
+                
+                pointCoordinatesArray = [...pointCoordinatesArray, ...points];
+                
+                // Draw the final rectangle
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+                ctx.fillRect(startX, startY, width, height);
                 ctx.strokeStyle = '#a855f7';
                 ctx.lineWidth = 4;
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-            }
-            
-            // Redraw all freehand paths
-            for (const path of window.selectedAreas.filter(area => area.type === 'freehand')) {
-                if (path.points.length > 1) {
-                    ctx.beginPath();
-                    ctx.moveTo(path.points[0].x, path.points[0].y);
-                    for (let i = 1; i < path.points.length; i++) {
-                        ctx.lineTo(path.points[i].x, path.points[i].y);
-                    }
-                    ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 4;
-                    ctx.stroke();
-                }
-            }
-        } else if (currentTool === 'rectangle') {
-            // Calculate rectangle dimensions
-            const width = lastX - window.rectStartX;
-            const height = lastY - window.rectStartY;
-            
-            // Only save if the rectangle is significant (not just a click)
-            if (Math.abs(width) > 10 && Math.abs(height) > 10) {
-                window.selectedAreas.push({
-                    type: 'rectangle',
-                    x: Math.min(window.rectStartX, lastX),
-                    y: Math.min(window.rectStartY, lastY),
-                    width: Math.abs(width),
-                    height: Math.abs(height)
-                });
-                
-                // Redraw all rectangles to show them permanently
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Redraw all rectangles
-                for (const rect of window.selectedAreas.filter(area => area.type === 'rectangle')) {
-                    ctx.fillStyle = 'rgba(168, 85, 247, 0.3)';
-                    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-                    ctx.strokeStyle = '#a855f7';
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-                }
-                
-                // Redraw all freehand paths
-                for (const path of window.selectedAreas.filter(area => area.type === 'freehand')) {
-                    if (path.points.length > 1) {
-                        ctx.beginPath();
-                        ctx.moveTo(path.points[0].x, path.points[0].y);
-                        for (let i = 1; i < path.points.length; i++) {
-                            ctx.lineTo(path.points[i].x, path.points[i].y);
-                        }
-                        ctx.strokeStyle = '#a855f7';
-                        ctx.lineWidth = 4;
-                        ctx.stroke();
-                    }
-                }
+                ctx.strokeRect(startX, startY, width, height);
             }
         }
-    }
+        
+        console.log("Captured Priority Zone Coordinates:", pointCoordinatesArray);
+    });
     
-    function handleTouchStart(e) {
+    // Touch events for mobile
+    canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
         const mouseEvent = new MouseEvent('mousedown', {
@@ -820,9 +708,9 @@ function addDrawingToolsToImage() {
             clientY: touch.clientY
         });
         canvas.dispatchEvent(mouseEvent);
-    }
-    
-    function handleTouchMove(e) {
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
         const mouseEvent = new MouseEvent('mousemove', {
@@ -830,13 +718,13 @@ function addDrawingToolsToImage() {
             clientY: touch.clientY
         });
         canvas.dispatchEvent(mouseEvent);
-    }
-    
-    function handleTouchEnd(e) {
+    });
+
+    canvas.addEventListener('touchend', (e) => {
         e.preventDefault();
         const mouseEvent = new MouseEvent('mouseup', {});
         canvas.dispatchEvent(mouseEvent);
-    }
+    });
 }
 
 function displayVisionResults(originalBlob, enhancedBlob) {
