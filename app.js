@@ -281,6 +281,14 @@ applyDrawingBtn.className = 'tool-btn apply-btn';
 applyDrawingBtn.textContent = 'Apply Drawing';
 applyDrawingBtn.style.marginLeft = 'auto';
 
+// New manual trigger button
+const removeBackgroundBtn = document.createElement('button');
+removeBackgroundBtn.id = 'remove-bg-btn';
+removeBackgroundBtn.className = 'tool-btn apply-btn';
+removeBackgroundBtn.textContent = 'Remove Background';
+removeBackgroundBtn.style.marginTop = '10px';
+removeBackgroundBtn.style.width = '100%';
+
 const drawingCanvas = document.getElementById('drawing-canvas');
 
 // Drawing variables
@@ -295,6 +303,7 @@ drawRectBtn.classList.add('active');
 
 // Add the apply button to the drawing controls
 document.querySelector('.drawing-controls').appendChild(applyDrawingBtn);
+document.querySelector('.drawing-controls').appendChild(removeBackgroundBtn);
 
 // Core Click Setup: Click the box area to activate browsing windows
 dropZone.addEventListener('click', () => fileInput.click());
@@ -360,22 +369,9 @@ urlBtn.addEventListener('click', async () => {
     if (!rawUrl) return;
     
     clearActiveErrors();
-    toggleLoaderDisplay(true, "Downloading image file from URL stream...");
-    
-    try {
-        const response = await fetch(rawUrl);
-        if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
-        const imageBlob = await response.blob();
-        processTargetBlob(imageBlob, "downloaded_image.png");
-    } catch (err) {
-        showDiagnosticCrashCard(
-            "Network Request Blocked",
-            "CORS Access Error",
-            "Could not load the image from that URL. The website hosting this image blocks direct script access due to Cross-Origin Security Laws.",
-            err.message
-        );
-        toggleLoaderDisplay(false);
-    }
+    // Show image upload only, don't process yet
+    const imageBlob = await fetch(rawUrl).then(r => r.blob());
+    processTargetBlob(imageBlob, "downloaded_image.png");
 });
 
 // Drawing tool event handlers
@@ -418,10 +414,25 @@ applyDrawingBtn.addEventListener('click', async () => {
         return;
     }
     
-    // Re-process the image with the drawn coordinates
+    // Show that drawing has been applied
+    alert("Drawing coordinates saved! Click 'Remove Background' to process with these coordinates.");
+});
+
+// Remove Background button event handler (Manual trigger)
+removeBackgroundBtn.addEventListener('click', async () => {
+    if (!inputImage.src) {
+        showDiagnosticCrashCard(
+            "No Image Loaded",
+            "Image Required",
+            "Please upload an image first before removing background."
+        );
+        return;
+    }
+    
+    // Get the current image source and convert to blob
     const imgSrc = inputImage.src;
     const blob = await fetch(imgSrc).then(r => r.blob());
-    await runNeuralBackgroundAI(blob, "processed_with_drawing.png", true);
+    await runNeuralBackgroundAI(blob, "processed_image.png");
 });
 
 // Initialize drawing for main canvas
@@ -608,7 +619,7 @@ function initializeDrawing() {
 // Initialize drawing when page loads
 document.addEventListener('DOMContentLoaded', initializeDrawing);
 
-// Core File Processor
+// Core File Processor (Updated to NOT process immediately)
 async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
     if (!incomingFileOrBlob) return;
 
@@ -623,9 +634,7 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
         return;
     }
 
-    toggleLoaderDisplay(true, "Decoding graphical layout arrays...");
-    const dynamicFallbackName = originalFileName || incomingFileOrBlob.name || "processed_asset.png";
-
+    // Just load the image without processing
     try {
         const decodedBitmap = await createImageBitmap(incomingFileOrBlob);
         const internalCanvas = document.createElement('canvas');
@@ -645,7 +654,7 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             
             previewSection.classList.remove('hidden');
             inputImage.src = liveUrlView;
-            outputImage.src = "";
+            outputImage.src = ""; // Don't process yet
             outputImage.classList.add('opacity-dim');
             setDownloadButtonState(false);
 
@@ -653,8 +662,13 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             window.drawingCoordinates = [];
             currentPath = [];
             
-            // Process without drawing initially
-            await runNeuralBackgroundAI(compiledPngBlob, dynamicFallbackName, false);
+            // Clear the drawing canvas
+            const ctx = drawingCanvas.getContext('2d');
+            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            
+            // Don't process the image automatically - wait for manual trigger
+            console.log("Image loaded. Click 'Remove Background' to process.");
+
         }, 'image/png');
 
     } catch (pipelineFault) {
@@ -663,9 +677,21 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
             const rawDirectUrl = URL.createObjectURL(incomingFileOrBlob);
             previewSection.classList.remove('hidden');
             inputImage.src = rawDirectUrl;
+            outputImage.src = ""; // Don't process yet
+            outputImage.classList.add('opacity-dim');
+            setDownloadButtonState(false);
+            
+            // Reset drawing coordinates for this new image
             window.drawingCoordinates = [];
             currentPath = [];
-            await runNeuralBackgroundAI(incomingFileOrBlob, dynamicFallbackName, false);
+            
+            // Clear the drawing canvas
+            const ctx = drawingCanvas.getContext('2d');
+            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            
+            // Don't process the image automatically - wait for manual trigger
+            console.log("Image loaded. Click 'Remove Background' to process.");
+            
         } catch (finalCrashState) {
             showDiagnosticCrashCard(
                 "Image Loading Error",
@@ -673,65 +699,52 @@ async function processTargetBlob(incomingFileOrBlob, originalFileName = null) {
                 "The browser failed to read or display this image layout structure.",
                 pipelineFault.message
             );
-            toggleLoaderDisplay(false);
         }
     }
 }
 
 // Executes background removal model natively via ONNX WebAssembly
-async function runNeuralBackgroundAI(cleanPngBlob, originalFileName, useDrawing = false) {
+async function runNeuralBackgroundAI(cleanPngBlob, originalFileName) {
     toggleLoaderDisplay(true, "AI executing background segmentation layer (Computing locally)...");
     try {
-        const options = {
-            progress: (instance, doneAmount, totalAmount) => {
-                const percentDone = Math.round((doneAmount / totalAmount) * 100);
-                toggleLoaderDisplay(true, `Isolating subject shapes... (${isNaN(percentDone) ? 0 : percentDone}%)`);
-            },
-            // Advanced AI control options
-            output_type: 'png', // Specify output type
-            post_process_mask: true, // Improve mask quality
-            mask_hint: null, // Additional mask guidance if needed
-        };
+        // Prepare foreground hints from drawing coordinates
+        let foregroundHints = [];
         
-        // Add drawing-based foreground hints if requested
-        if (useDrawing && window.drawingCoordinates.length > 0) {
-            const foregroundHints = [];
-            
-            for (const coord of window.drawingCoordinates) {
-                if (coord.type === 'rectangle') {
-                    // Calculate normalized coordinates for the image size
-                    const scaleX = 1 / inputImage.naturalWidth;
-                    const scaleY = 1 / inputImage.naturalHeight;
-                    
-                    const normalizedX = Math.max(0, Math.min(1, coord.x * scaleX));
-                    const normalizedY = Math.max(0, Math.min(1, coord.y * scaleY));
-                    const normalizedWidth = Math.max(0, Math.min(1, coord.width * scaleX));
-                    const normalizedHeight = Math.max(0, Math.min(1, coord.height * scaleY));
-                    
-                    foregroundHints.push({ 
-                        x: normalizedX, 
-                        y: normalizedY, 
-                        width: normalizedWidth, 
-                        height: normalizedHeight 
-                    });
-                }
-            }
-            
-            if (foregroundHints.length > 0) {
-                options.foreground_hints = foregroundHints;
+        // Convert drawing coordinates to normalized foreground hints
+        for (const coord of window.drawingCoordinates) {
+            if (coord.type === 'rectangle') {
+                // Calculate normalized coordinates for the image size
+                const scaleX = 1 / inputImage.naturalWidth;
+                const scaleY = 1 / inputImage.naturalHeight;
+                
+                const normalizedX = Math.max(0, Math.min(1, coord.x * scaleX));
+                const normalizedY = Math.max(0, Math.min(1, coord.y * scaleY));
+                const normalizedWidth = Math.max(0, Math.min(1, coord.width * scaleX));
+                const normalizedHeight = Math.max(0, Math.min(1, coord.height * scaleY));
+                
+                foregroundHints.push({ 
+                    x: normalizedX, 
+                    y: normalizedY, 
+                    width: normalizedWidth, 
+                    height: normalizedHeight 
+                });
             }
         }
         
         // Add text prompt as additional guidance if available
         const prompt = foregroundPrompt.value.trim();
         if (prompt) {
-            // While the library doesn't directly support text prompts for this specific model,
-            // we can try to infer regions based on the prompt
             console.log("Processing with prompt:", prompt);
-            
-            // This is where you'd add text-to-coordinates inference
-            // For now, we'll just log the prompt for future implementation
         }
+        
+        const options = {
+            progress: (instance, doneAmount, totalAmount) => {
+                const percentDone = Math.round((doneAmount / totalAmount) * 100);
+                toggleLoaderDisplay(true, `Isolating subject shapes... (${isNaN(percentDone) ? 0 : percentDone}%)`);
+            },
+            // According to the library documentation, foreground_hints is the correct parameter
+            foreground_hints: foregroundHints.length > 0 ? foregroundHints : undefined,
+        };
         
         const outputResultBlob = await removeBackground(cleanPngBlob, options);
 
