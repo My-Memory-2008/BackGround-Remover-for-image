@@ -100,21 +100,19 @@
 
 
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serverless Meta SAM 2 Background Keeper</title>
-    <!-- Import HuggingFace Transformers.js via ESM Module CDN -->
+    <title>Crash-Proof Serverless Meta SAM 2</title>
+    <!-- Import HuggingFace Transformers.js Engine Framework Layer -->
     <script type="module">
         import { pipeline, AutoProcessor, AutoModel } from 'https://jsdelivr.net';
         window.XenovaAI = { pipeline, AutoProcessor, AutoModel };
     </script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; margin: 20px; }
+        body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; margin: 0; padding: 20px; }
         .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 15px; }
         .canvas-container { position: relative; display: inline-block; border: 2px dashed #444; margin-top: 15px; }
         #sourceImage { max-width: 100%; display: block; max-height: 60vh; }
@@ -122,18 +120,18 @@
         button, input { padding: 10px 20px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer; }
         #processBtn { background: #28a745; color: white; }
         #clearBtn { background: #dc3545; color: white; }
-        #status { background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; color: #ffc107; }
+        #status { background: #222; padding: 12px; border-radius: 8px; border: 1px solid #333; color: #ffc107; font-weight: bold; min-width: 300px; }
         #resultCanvas { margin-top: 20px; border: 2px solid #00ffcc; max-width: 100%; background-image: repeating-conic-gradient(#333 0% 25%, #222 0% 50%); background-size: 20px 20px; }
     </style>
 </head>
 <body>
 
-    <h1>Serverless SAM 2 Object Recovery</h1>
-    <p>Runs 100% in your browser for free via WebGPU. Click your subject AND background words like "Chloe" to keep them!</p>
+    <h1>Serverless SAM 2 (With Engine Fallback)</h1>
+    <p>Click your subject AND background words like "Chloe" to keep them. Uses local device compute via Cloudflare Pages.</p>
 
     <div class="container">
         <input type="file" id="imageUpload" accept="image/*">
-        <div id="status">⏳ Initializing SAM 2 Model Engine via WebGPU...</div>
+        <div id="status">⏳ Evaluating browser device capabilities...</div>
 
         <div class="canvas-container" id="workspace" style="display:none;">
             <img id="sourceImage" alt="Upload source">
@@ -164,32 +162,48 @@
     let processor = null;
     let model = null;
     let clickPoints = [];
-    let imageRawData = null;
 
-    // 1. Initialize SAM 2 Model directly from HuggingFace CDN using WebGPU
+    // 1. Dual-Engine Initialization Pipeline (WebGPU -> WASM Fallback Loop)
     async function initSAM2() {
-        try {
-            // Check if user's browser supports WebGPU acceleration natively
-            const hasWebGPU = navigator.gpu ? 'webgpu' : 'wasm';
-            status.innerText = `Loading Meta SAM 2 (Using ${hasWebGPU.toUpperCase()} engine)...`;
+        // Attempt Primary Path: High-Speed WebGPU Execution Core
+        if (navigator.gpu) {
+            try {
+                status.innerText = "⚡ Initializing Meta SAM 2 [Engine: WebGPU Mode]...";
+                processor = await window.XenovaAI.AutoProcessor.from_pretrained('Xenova/sam2-hiera-tiny');
+                
+                model = await window.XenovaAI.AutoModel.from_pretrained('Xenova/sam2-hiera-tiny', {
+                    device: 'webgpu',
+                    dataType: 'fp32' // Changed from fp16 to fp32 to prevent 'shader-f16' feature support crashes
+                });
 
-            // Load optimized, client-side tiny Hiera weights from HuggingFace
+                status.innerText = "🚀 SAM 2 Ready [Engine: WebGPU Accelerated]! Upload an image.";
+                return; // Initialization successful, stop here
+            } catch (webgpuError) {
+                console.warn("WebGPU initialization failed. Switching to WebAssembly fallback...", webgpuError);
+            }
+        }
+
+        // Secondary Path Fallback: Universal WebAssembly CPU Processing Engine 
+        try {
+            status.innerText = "⚙️ WebGPU unavailable. Initializing WebAssembly (WASM CPU fallback)...";
             processor = await window.XenovaAI.AutoProcessor.from_pretrained('Xenova/sam2-hiera-tiny');
+            
             model = await window.XenovaAI.AutoModel.from_pretrained('Xenova/sam2-hiera-tiny', {
-                device: hasWebGPU, // Use hardware WebGPU or fallback gracefully to CPU WASM
-                dataType: 'fp16'   // Quantized for lightning fast execution
+                device: 'wasm',
+                dataType: 'fp32'
             });
 
-            status.innerText = "🚀 SAM 2 Ready! Upload an image file to begin.";
-        } catch (err) {
-            status.innerText = "❌ Initialization Error. Ensure your browser supports WebGPU.";
-            console.error(err);
+            status.innerText = "🚀 SAM 2 Ready [Engine: CPU WASM Mode]! Upload an image.";
+        } catch (wasmError) {
+            status.innerText = "❌ Critical Setup Error. Please refresh or update your browser.";
+            console.error("All AI initialization strategies failed:", wasmError);
         }
     }
-    // Wait for the scripts to mount globally, then initialize
-    setTimeout(initSAM2, 1000);
 
-    // 2. Handle Client Upload File Matrix Mapping
+    // Delay start slightly to guarantee modules attach cleanly to window global properties
+    setTimeout(initSAM2, 800);
+
+    // 2. Handle Image Upload Lifecycle Configuration
     imageUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -199,32 +213,35 @@
             sourceImage.src = event.target.result;
             sourceImage.onload = () => {
                 workspace.style.display = 'inline-block';
+                
+                // Track visual boundary rendering
                 interactiveCanvas.width = sourceImage.clientWidth;
                 interactiveCanvas.height = sourceImage.clientHeight;
                 
+                // Clear active arrays
                 clickPoints = [];
                 interCtx.clearRect(0, 0, interactiveCanvas.width, interactiveCanvas.height);
+                resCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
                 processBtn.disabled = false;
-                status.innerText = "🎯 Click on the foreground object AND your background text ('Chloe').";
+                status.innerText = "🎯 Click on your subject AND your background text ('Chloe') to save them.";
             };
         };
         reader.readAsDataURL(file);
     });
 
-    // 3. Collect Relative Click Coordinates
+    // 3. Track Relative Interactive Coordinates
     interactiveCanvas.addEventListener('click', (e) => {
         const rect = interactiveCanvas.getBoundingClientRect();
-        // Convert to absolute pixel coordinates on the displayed image frame dimensions
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Save normalized coordinates required by SAM API formatting
+        // Scale relative layout nodes into original image source property ranges
         clickPoints.push({
             point: [ (x / interactiveCanvas.width) * sourceImage.naturalWidth, (y / interactiveCanvas.height) * sourceImage.naturalHeight ],
-            label: 1 // 1 means foreground/keep, 0 means background/remove
+            label: 1 // 1 tells SAM to isolate/keep this segment
         });
 
-        // Draw a green tracking node dot overlay indicator
+        // Draw a persistent visual green target dot
         interCtx.fillStyle = '#00ffcc';
         interCtx.beginPath();
         interCtx.arc(x, y, 6, 0, 2 * Math.PI);
@@ -234,57 +251,51 @@
     clearBtn.addEventListener('click', () => {
         clickPoints = [];
         interCtx.clearRect(0, 0, interactiveCanvas.width, interactiveCanvas.height);
-        status.innerText = "Cleared. Re-click target zones.";
+        resCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+        status.innerText = "Tracking points cleared. Mark new points.";
     });
 
-    // 4. Run Serverless Local SAM 2 Segmentation Pipeline
+    // 4. Run SAM 2 Model Inference Vector Arrays
     processBtn.addEventListener('click', async () => {
         if (clickPoints.length === 0) {
-            alert("Click on at least one area to keep first!");
+            alert("Please tap to choose the object layers to preserve first!");
             return;
         }
 
-        status.innerText = "⚡ Running SAM 2 on your graphics card...";
+        status.innerText = "⚡ Compiling image mask segments via local device drivers...";
 
-        // Extract raw image data properties
         const inputs = await processor(sourceImage);
-        
-        // Structure raw array points into model-ready execution tensors
         const inputPoints = clickPoints.map(p => p.point);
         const inputLabels = clickPoints.map(p => p.label);
 
-        // Run local model inference pipeline block
+        // Process matrices natively within the chosen device pipeline
         const outputs = await model({
             ...inputs,
             input_points: [inputPoints],
             input_labels: [inputLabels]
         });
 
-        // 5. Render Generated Transparent Mask on Base Canvas Element
+        // 5. Blending Compositor Layout Calculations
         const trueWidth = sourceImage.naturalWidth;
         const trueHeight = sourceImage.naturalHeight;
         resultCanvas.width = trueWidth;
         resultCanvas.height = trueHeight;
 
-        // Draw the base source file textures down
         resCtx.drawImage(sourceImage, 0, 0, trueWidth, trueHeight);
         const frameImgData = resCtx.getImageData(0, 0, trueWidth, trueHeight);
-
-        // Read SAM 2 mask array prediction response dimensions (0 = background, 1 = item)
         const samMaskData = outputs.pred_masks.data; 
 
-        // Loop over individual frame byte maps to drop unwanted background elements
+        // Update the pixel alpha channel based on the model's predictions
         for (let i = 0; i < samMaskData.length; i++) {
             const pixelAlphaByteIndex = (i * 4) + 3;
-            // If SAM 2 returns false/0, erase the pixel by making transparency 0
+            // 0 means background segment -> Erase it instantly
             if (samMaskData[i] === 0) {
                 frameImgData.data[pixelAlphaByteIndex] = 0;
             }
         }
 
-        // Render clean structural cutout to UI output canvas frame 
         resCtx.putImageData(frameImgData, 0, 0);
-        status.innerText = "🎉 Cutout compiled successfully using WebGPU!";
+        status.innerText = "🎉 Process complete! Transparency cutout rendered.";
     });
 </script>
 </body>
