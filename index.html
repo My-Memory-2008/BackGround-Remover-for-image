@@ -98,13 +98,14 @@
 
 
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Worker Powered Interactive AI Background Keeper</title>
+    <title>Interactive AI Background Keeper</title>
+    <!-- Official Stable Google MediaPipe Vision CDN -->
+    <script src="https://jsdelivr.net" crossorigin="anonymous"></script>
     <style>
         body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; margin: 0; padding: 20px; }
         .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 15px; }
@@ -114,18 +115,19 @@
         button, input { padding: 10px 20px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer; }
         #processBtn { background: #28a745; color: white; }
         #clearBtn { background: #dc3545; color: white; }
-        #status { background: #222; padding: 12px; border-radius: 8px; border: 1px solid #333; color: #ffc107; font-weight: bold; min-width: 300px; }
+        button:disabled { background: #444 !important; color: #888; cursor: not-allowed; }
+        #status { background: #222; padding: 12px; border-radius: 8px; border: 1px solid #333; color: #ffc107; font-weight: bold; min-width: 320px; }
         #resultCanvas { margin-top: 20px; border: 2px solid #00ffcc; max-width: 100%; background-image: repeating-conic-gradient(#333 0% 25%, #222 0% 50%); background-size: 20px 20px; }
     </style>
 </head>
 <body>
 
-    <h1>Interactive AI Background Keeper (Google MediaPipe)</h1>
-    <p>Click your subject AND background text layers like "Chloe" to keep them from being removed!</p>
+    <h1>Interactive AI Background Keeper</h1>
+    <p>Click your subject AND background words like "Chloe" to keep them from being removed!</p>
 
     <div class="container">
         <input type="file" id="imageUpload" accept="image/*">
-        <div id="status">⏳ Spawning isolated Google AI engine background thread...</div>
+        <div id="status">⏳ Initializing Google AI Engine Components...</div>
 
         <div class="canvas-container" id="workspace" style="display:none;">
             <img id="sourceImage" alt="Upload source">
@@ -137,7 +139,7 @@
             <button id="processBtn" disabled>Run AI Extract Cutout</button>
         </div>
 
-        <h3>Output Asset PNG Layer:</h3>
+        <h3>Output PNG Result:</h3>
         <canvas id="resultCanvas"></canvas>
     </div>
 
@@ -153,44 +155,56 @@
     const processBtn = document.getElementById('processBtn');
     const clearBtn = document.getElementById('clearBtn');
 
+    let interactiveSegmenter = null;
     let clickPoints = [];
-    let mediaPipeWorker = null;
 
-    // 1. Thread Connection Pipeline
-    function initWorker() {
-        // Instantiate thread worker referencing local source
-        mediaPipeWorker = new Worker('./mediapipe-worker.js');
-        
-        // Command initialization sequence
-        mediaPipeWorker.postMessage({ action: 'load' });
+    // 1. Loop Hook Timer to ensure scripts load completely before mounting
+    async function tryInitializingAI() {
+        // Safe check if CDN variables are fully attached to window context
+        if (!window.mediapipe || !window.mediapipe.tasksVision) {
+            status.innerText = "⏳ Connecting to Google Asset Repositories...";
+            setTimeout(tryInitializingAI, 300); // Retry in 300ms if not ready
+            return;
+        }
 
-        // Catch runtime response data streams
-        mediaPipeWorker.onmessage = function(e) {
-            const data = e.data;
+        try {
+            status.innerText = "⚡ Allocating WebGL Accelerators & Downloading Model Weights...";
+            
+            const { FilesetResolver, InteractiveSegmenter } = window.mediapipe.tasksVision;
+            const visionWasmFiles = await FilesetResolver.forVisionTasks(
+                "https://jsdelivr.net"
+            );
 
-            if (data.status === 'ready') {
-                status.innerText = "🚀 Google AI Engine Ready! Choose an image file above.";
-            } else if (data.status === 'complete') {
-                renderMaskOutput(data.maskData);
-            } else if (data.status === 'error') {
-                status.innerText = `❌ Error: ${data.error}`;
-            } else {
-                status.innerText = data.status; // Render general text alerts
-            }
-        };
+            interactiveSegmenter = await InteractiveSegmenter.createFromOptions(visionWasmFiles, {
+                baseOptions: {
+                    modelAssetPath: "https://googleapis.com",
+                    delegate: "GPU" // Utilizes GPU acceleration inside the main thread directly
+                },
+                outputCategoryMask: true,
+                outputConfidenceMask: false
+            });
+
+            status.innerText = "🚀 AI Engine Core Online! Please upload your photo.";
+        } catch (err) {
+            status.innerText = "❌ Initialization Critical Error.";
+            console.error(err);
+        }
     }
-    initWorker();
+    // Launch the connection loop immediately
+    tryInitializingAI();
 
-    // 2. Handle Asset Image Upload Setup
+    // 2. Manage File Selection Lifecycle
     imageUpload.addEventListener('change', (e) => {
         const file = e.target.files;
-        if (!file) return;
+        if (!file || file.length === 0) return;
 
         const reader = new FileReader();
         reader.onload = (event) => {
             sourceImage.src = event.target.result;
             sourceImage.onload = () => {
                 workspace.style.display = 'inline-block';
+                
+                // Align visual selection borders with coordinate dimensions
                 interactiveCanvas.width = sourceImage.clientWidth;
                 interactiveCanvas.height = sourceImage.clientHeight;
                 
@@ -203,18 +217,20 @@
                 status.innerText = "🎯 Click on your subject AND your background text ('Chloe') to protect them.";
             };
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(file[0]);
     });
 
-    // 3. Keep Track of Click Coordinates
+    // 3. Register Click Points Map
     interactiveCanvas.addEventListener('click', (e) => {
         const rect = interactiveCanvas.getBoundingClientRect();
+        
+        // Normalize coordinates to 0.0 - 1.0 range required by MediaPipe
         const x = (e.clientX - rect.left) / interactiveCanvas.width;
         const y = (e.clientY - rect.top) / interactiveCanvas.height;
 
         clickPoints.push({ x, y });
 
-        // Draw indicator node dot marker
+        // Draw indicator dot marker over user selection
         interCtx.fillStyle = '#00ffcc';
         interCtx.beginPath();
         interCtx.arc(e.clientX - rect.left, e.clientY - rect.top, 7, 0, 2 * Math.PI);
@@ -225,58 +241,61 @@
         clickPoints = [];
         interCtx.clearRect(0, 0, interactiveCanvas.width, interactiveCanvas.height);
         resCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
-        status.innerText = "Tracking points flushed. Mark new points.";
+        status.innerText = "Points cleared. Mark new points.";
     });
 
-    // 4. Pass Data Objects to Worker Thread
-    processBtn.addEventListener('click', () => {
+    // 4. Sequential Core Segment Blending
+    processBtn.addEventListener('click', async () => {
+        if (!interactiveSegmenter) return;
         if (clickPoints.length === 0) {
-            alert("Please mark at least one section layer to save first!");
+            alert("Please tap on at least one section layer to save first!");
             return;
         }
 
-        status.innerText = "⚡ Worker processing mask on background thread...";
+        status.innerText = "⚡ Processing layers and refining composite masks...";
 
-        // Capture raw pixel data arrays from the source image frame
-        const canvasTemp = document.createElement('canvas');
-        canvasTemp.width = sourceImage.naturalWidth;
-        canvasTemp.height = sourceImage.naturalHeight;
-        const ctxTemp = canvasTemp.getContext('2d');
-        ctxTemp.drawImage(sourceImage, 0, 0);
-        
-        const rawImageData = ctxTemp.getImageData(0, 0, canvasTemp.width, canvasTemp.height);
-
-        // Send pixel matrix payload to mediapipe-worker.js
-        mediaPipeWorker.postMessage({
-            action: 'segment',
-            imageData: rawImageData,
-            clickPoints: clickPoints
-        });
-    });
-
-    // 5. Draw Final Transparency Alpha Blends
-    function renderMaskOutput(masterMask) {
         const trueWidth = sourceImage.naturalWidth;
         const trueHeight = sourceImage.naturalHeight;
         resultCanvas.width = trueWidth;
         resultCanvas.height = trueHeight;
 
+        // Create an empty mask matrix layer
+        const masterCompositeMask = new Uint8Array(trueWidth * trueHeight).fill(0);
+
+        // Process each coordinate click sequentially using Async-Await steps
+        for (let pt of clickPoints) {
+            const userTargetPrompt = { keypoint: { x: pt.x, y: pt.y } };
+
+            await new Promise((resolve) => {
+                interactiveSegmenter.segment(sourceImage, userTargetPrompt, (inferenceOutput) => {
+                    const localMaskArray = inferenceOutput.categoryMask.getAsUint8Array();
+
+                    // Logical OR Evaluation: Combine pixels marked by any point
+                    for (let index = 0; index < localMaskArray.length; index++) {
+                        if (localMaskArray[index] > 0) {
+                            masterCompositeMask[index] = 255;
+                        }
+                    }
+                    resolve();
+                });
+            });
+        }
+
+        // 5. Final Canvas Output Generation
         resCtx.drawImage(sourceImage, 0, 0, trueWidth, trueHeight);
         const imageFramePixels = resCtx.getImageData(0, 0, trueWidth, trueHeight);
 
-        // Apply our master selection mask to the image alpha channel
-        for (let i = 0; i < masterMask.length; i++) {
+        // Map mask arrays onto base frame alpha channel properties
+        for (let i = 0; i < masterCompositeMask.length; i++) {
             const pixelAlphaByteIndex = (i * 4) + 3;
-            // 0 means background segment -> Erase it instantly
-            if (masterMask[i] === 0) {
-                imageFramePixels.data[pixelAlphaByteIndex] = 0;
+            if (masterCompositeMask[i] === 0) {
+                imageFramePixels.data[pixelAlphaByteIndex] = 0; // Erase background pixel
             }
         }
 
         resCtx.putImageData(imageFramePixels, 0, 0);
-        status.innerText = "🎉 Process complete! Transparency cutout rendered.";
-    }
+        status.innerText = "🎉 Process complete! Target subject and text preserved together.";
+    });
 </script>
 </body>
 </html>
-
