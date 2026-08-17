@@ -105,12 +105,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crash-Proof Serverless Meta SAM 2</title>
-    <!-- Import HuggingFace Transformers.js Engine Framework Layer -->
-    <script type="module">
-        import { pipeline, AutoProcessor, AutoModel } from 'https://jsdelivr.net';
-        window.XenovaAI = { pipeline, AutoProcessor, AutoModel };
-    </script>
+    <title>Crash-Proof WebGPU Background Keeper</title>
     <style>
         body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; margin: 0; padding: 20px; }
         .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 15px; }
@@ -126,12 +121,12 @@
 </head>
 <body>
 
-    <h1>Serverless SAM 2 (With Engine Fallback)</h1>
-    <p>Click your subject AND background words like "Chloe" to keep them. Uses local device compute via Cloudflare Pages.</p>
+    <h1>Meta SAM 2 Background Keeper</h1>
+    <p>Click your subject AND background words like "Chloe" to keep them. Uses isolated Web Workers.</p>
 
     <div class="container">
         <input type="file" id="imageUpload" accept="image/*">
-        <div id="status">⏳ Evaluating browser device capabilities...</div>
+        <div id="status">⏳ Spawning Background Engine Worker Thread...</div>
 
         <div class="canvas-container" id="workspace" style="display:none;">
             <img id="sourceImage" alt="Upload source">
@@ -147,7 +142,7 @@
         <canvas id="resultCanvas"></canvas>
     </div>
 
-<script type="module">
+<script>
     const status = document.getElementById('status');
     const imageUpload = document.getElementById('imageUpload');
     const workspace = document.getElementById('workspace');
@@ -159,51 +154,36 @@
     const processBtn = document.getElementById('processBtn');
     const clearBtn = document.getElementById('clearBtn');
 
-    let processor = null;
-    let model = null;
     let clickPoints = [];
+    let aiWorker = null;
 
-    // 1. Dual-Engine Initialization Pipeline (WebGPU -> WASM Fallback Loop)
-    async function initSAM2() {
-        // Attempt Primary Path: High-Speed WebGPU Execution Core
-        if (navigator.gpu) {
-            try {
-                status.innerText = "⚡ Initializing Meta SAM 2 [Engine: WebGPU Mode]...";
-                processor = await window.XenovaAI.AutoProcessor.from_pretrained('Xenova/sam2-hiera-tiny');
-                
-                model = await window.XenovaAI.AutoModel.from_pretrained('Xenova/sam2-hiera-tiny', {
-                    device: 'webgpu',
-                    dataType: 'fp32' // Changed from fp16 to fp32 to prevent 'shader-f16' feature support crashes
-                });
+    // 1. Initialize Thread Worker
+    function initWorker() {
+        // Spawn background worker using modern ECMAScript module options
+        aiWorker = new Worker('./worker.js', { type: 'module' });
+        
+        // Trigger model loading sequence inside worker
+        aiWorker.postMessage({ action: 'load' });
 
-                status.innerText = "🚀 SAM 2 Ready [Engine: WebGPU Accelerated]! Upload an image.";
-                return; // Initialization successful, stop here
-            } catch (webgpuError) {
-                console.warn("WebGPU initialization failed. Switching to WebAssembly fallback...", webgpuError);
+        // Catch messages back from the worker
+        aiWorker.onmessage = function(e) {
+            const data = e.data;
+
+            if (data.status === 'ready') {
+                status.innerText = "🚀 SAM 2 Ready! Upload an image file to begin.";
+            } else if (data.status === 'complete') {
+                renderMaskResult(data.maskData);
+            } else if (data.status === 'error') {
+                status.innerText = `❌ Error: ${data.error}`;
+            } else {
+                // Display general loading milestones
+                status.innerText = data.status;
             }
-        }
-
-        // Secondary Path Fallback: Universal WebAssembly CPU Processing Engine 
-        try {
-            status.innerText = "⚙️ WebGPU unavailable. Initializing WebAssembly (WASM CPU fallback)...";
-            processor = await window.XenovaAI.AutoProcessor.from_pretrained('Xenova/sam2-hiera-tiny');
-            
-            model = await window.XenovaAI.AutoModel.from_pretrained('Xenova/sam2-hiera-tiny', {
-                device: 'wasm',
-                dataType: 'fp32'
-            });
-
-            status.innerText = "🚀 SAM 2 Ready [Engine: CPU WASM Mode]! Upload an image.";
-        } catch (wasmError) {
-            status.innerText = "❌ Critical Setup Error. Please refresh or update your browser.";
-            console.error("All AI initialization strategies failed:", wasmError);
-        }
+        };
     }
+    initWorker();
 
-    // Delay start slightly to guarantee modules attach cleanly to window global properties
-    setTimeout(initSAM2, 800);
-
-    // 2. Handle Image Upload Lifecycle Configuration
+    // 2. Handle Image Selection
     imageUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -213,12 +193,9 @@
             sourceImage.src = event.target.result;
             sourceImage.onload = () => {
                 workspace.style.display = 'inline-block';
-                
-                // Track visual boundary rendering
                 interactiveCanvas.width = sourceImage.clientWidth;
                 interactiveCanvas.height = sourceImage.clientHeight;
                 
-                // Clear active arrays
                 clickPoints = [];
                 interCtx.clearRect(0, 0, interactiveCanvas.width, interactiveCanvas.height);
                 resCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
@@ -229,19 +206,17 @@
         reader.readAsDataURL(file);
     });
 
-    // 3. Track Relative Interactive Coordinates
+    // 3. Track Click Metrics
     interactiveCanvas.addEventListener('click', (e) => {
         const rect = interactiveCanvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Scale relative layout nodes into original image source property ranges
         clickPoints.push({
             point: [ (x / interactiveCanvas.width) * sourceImage.naturalWidth, (y / interactiveCanvas.height) * sourceImage.naturalHeight ],
-            label: 1 // 1 tells SAM to isolate/keep this segment
+            label: 1
         });
 
-        // Draw a persistent visual green target dot
         interCtx.fillStyle = '#00ffcc';
         interCtx.beginPath();
         interCtx.arc(x, y, 6, 0, 2 * Math.PI);
@@ -252,30 +227,36 @@
         clickPoints = [];
         interCtx.clearRect(0, 0, interactiveCanvas.width, interactiveCanvas.height);
         resCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
-        status.innerText = "Tracking points cleared. Mark new points.";
+        status.innerText = "Tracking points cleared.";
     });
 
-    // 4. Run SAM 2 Model Inference Vector Arrays
-    processBtn.addEventListener('click', async () => {
+    // 4. Pass Data to Background Thread Worker
+    processBtn.addEventListener('click', () => {
         if (clickPoints.length === 0) {
-            alert("Please tap to choose the object layers to preserve first!");
+            alert("Click on areas you want to keep first!");
             return;
         }
 
-        status.innerText = "⚡ Compiling image mask segments via local device drivers...";
+        status.innerText = "⚡ Worker processing mask on background thread...";
 
-        const inputs = await processor(sourceImage);
-        const inputPoints = clickPoints.map(p => p.point);
-        const inputLabels = clickPoints.map(p => p.label);
+        // Temporarily draw image to a canvas to extract raw ImageData pixels safely
+        const canvasTemp = document.createElement('canvas');
+        canvasTemp.width = sourceImage.naturalWidth;
+        canvasTemp.height = sourceImage.naturalHeight;
+        const ctxTemp = canvasTemp.getContext('2d');
+        ctxTemp.drawImage(sourceImage, 0, 0);
+        const rawImageData = ctxTemp.getImageData(0, 0, canvasTemp.width, canvasTemp.height);
 
-        // Process matrices natively within the chosen device pipeline
-        const outputs = await model({
-            ...inputs,
-            input_points: [inputPoints],
-            input_labels: [inputLabels]
+        // Ship the pixel array and clicks over to worker.js
+        aiWorker.postMessage({
+            action: 'segment',
+            imageData: rawImageData,
+            clickPoints: clickPoints
         });
+    });
 
-        // 5. Blending Compositor Layout Calculations
+    // 5. Draw Final Transparency Composition Mask
+    function renderMaskResult(samMaskData) {
         const trueWidth = sourceImage.naturalWidth;
         const trueHeight = sourceImage.naturalHeight;
         resultCanvas.width = trueWidth;
@@ -283,20 +264,17 @@
 
         resCtx.drawImage(sourceImage, 0, 0, trueWidth, trueHeight);
         const frameImgData = resCtx.getImageData(0, 0, trueWidth, trueHeight);
-        const samMaskData = outputs.pred_masks.data; 
 
-        // Update the pixel alpha channel based on the model's predictions
         for (let i = 0; i < samMaskData.length; i++) {
             const pixelAlphaByteIndex = (i * 4) + 3;
-            // 0 means background segment -> Erase it instantly
             if (samMaskData[i] === 0) {
                 frameImgData.data[pixelAlphaByteIndex] = 0;
             }
         }
 
         resCtx.putImageData(frameImgData, 0, 0);
-        status.innerText = "🎉 Process complete! Transparency cutout rendered.";
-    });
+        status.innerText = "🎉 Process complete! Mask compiled safely via background thread.";
+    }
 </script>
 </body>
 </html>
