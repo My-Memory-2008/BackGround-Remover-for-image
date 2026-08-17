@@ -102,294 +102,190 @@
 
 
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SAM 2 Interactive Segmentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serverless Meta SAM 2 Background Keeper</title>
+    <!-- Import HuggingFace Transformers.js via ESM Module CDN -->
+    <script type="module">
+        import { pipeline, AutoProcessor, AutoModel } from 'https://jsdelivr.net';
+        window.XenovaAI = { pipeline, AutoProcessor, AutoModel };
+    </script>
     <style>
-        body {
-            background: #0a0f1d;
-            color: white;
-            font-family: system-ui, sans-serif;
-            padding: 20px;
-            margin: 0;
-        }
-        .container { max-width: 900px; margin: 0 auto; }
-        h1 { text-align: center; margin-bottom: 5px; }
-        p { color: #aaa; text-align: center; margin-bottom: 20px; }
-        .drop-zone {
-            border: 2px dashed #444;
-            padding: 40px 20px;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 20px;
-            background: rgba(30, 35, 50, 0.5);
-        }
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin: 15px 0;
-            flex-wrap: wrap;
-        }
-        button {
-            padding: 8px 16px;
-            background: #222;
-            border: 1px solid #444;
-            color: white;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        button:hover { background: #333; }
-        button.active { background: #a855f7; }
-        #canvas {
-            display: block;
-            max-width: 100%;
-            margin: 20px auto;
-            background: #000;
-            border-radius: 4px;
-            box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
-        }
-        .status {
-            color: #a855f7;
-            text-align: center;
-            margin: 10px 0;
-            min-height: 20px;
-        }
-        .points {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-        .point {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            position: absolute;
-            transform: translate(-50%, -50%);
-            z-index: 20;
-        }
-        .positive { background: #00ff00; border: 2px solid #00aa00; }
-        .negative { background: #ff0000; border: 2px solid #aa0000; }
-        .instructions {
-            background: rgba(30, 35, 50, 0.5);
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-            font-size: 0.9rem;
-        }
+        body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .canvas-container { position: relative; display: inline-block; border: 2px dashed #444; margin-top: 15px; }
+        #sourceImage { max-width: 100%; display: block; max-height: 60vh; }
+        #interactiveCanvas { position: absolute; top:0; left:0; width:100%; height:100%; cursor: crosshair; }
+        button, input { padding: 10px 20px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer; }
+        #processBtn { background: #28a745; color: white; }
+        #clearBtn { background: #dc3545; color: white; }
+        #status { background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; color: #ffc107; }
+        #resultCanvas { margin-top: 20px; border: 2px solid #00ffcc; max-width: 100%; background-image: repeating-conic-gradient(#333 0% 25%, #222 0% 50%); background-size: 20px 20px; }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>🎯 SAM 2 Interactive Segmentation</h1>
-    <p>Select any object with a single click — even tiny text like "Chloe"</p>
 
-    <div class="drop-zone" id="drop-zone">📁 Drag & drop image here or click to browse</div>
-    <input type="file" id="file-input" accept="image/*" style="display:none">
+    <h1>Serverless SAM 2 Object Recovery</h1>
+    <p>Runs 100% in your browser for free via WebGPU. Click your subject AND background words like "Chloe" to keep them!</p>
 
-    <div class="controls">
-        <button id="btn-clear">🗑️ Clear Points</button>
-        <button id="btn-generate">✅ Generate Mask (Enter)</button>
-        <button id="btn-download" disabled>📥 Download Cutout</button>
+    <div class="container">
+        <input type="file" id="imageUpload" accept="image/*">
+        <div id="status">⏳ Initializing SAM 2 Model Engine via WebGPU...</div>
+
+        <div class="canvas-container" id="workspace" style="display:none;">
+            <img id="sourceImage" alt="Upload source">
+            <canvas id="interactiveCanvas"></canvas>
+        </div>
+
+        <div>
+            <button id="clearBtn">Clear Clicks</button>
+            <button id="processBtn" disabled>Generate Dynamic Cutout</button>
+        </div>
+
+        <h3>Output PNG Layer:</h3>
+        <canvas id="resultCanvas"></canvas>
     </div>
-
-    <div class="status" id="status">👉 Upload an image to begin. Then click on the object you want to keep.</div>
-
-    <div class="instructions">
-        <strong>How to use:</strong><br>
-        • Click on object (e.g., text "Chloe") → green point = keep<br>
-        • Hold <kbd>Alt</kbd> + click → red point = exclude<br>
-        • Press <kbd>Enter</kbd> to generate mask<br>
-        • Click "Download Cutout" when ready
-    </div>
-
-    <canvas id="canvas"></canvas>
-    <div id="points-container"></div>
-</div>
 
 <script type="module">
-// --- SAM 2 Client-Side Integration (ONNX Runtime Web) ---
-// This uses the lightweight SAM 2 Tiny model (~100MB) from Hugging Face
-// CDN: https://cdn.jsdelivr.net/npm/@sam2/onnx@0.1.0/dist/sam2-tiny.onnx.js
+    const status = document.getElementById('status');
+    const imageUpload = document.getElementById('imageUpload');
+    const workspace = document.getElementById('workspace');
+    const sourceImage = document.getElementById('sourceImage');
+    const interactiveCanvas = document.getElementById('interactiveCanvas');
+    const interCtx = interactiveCanvas.getContext('2d');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const resCtx = resultCanvas.getContext('2d');
+    const processBtn = document.getElementById('processBtn');
+    const clearBtn = document.getElementById('clearBtn');
 
-// Step 1: Load ONNX Runtime + SAM 2 model
-const SAM_MODEL_URL = "https://cdn.jsdelivr.net/npm/@sam2/onnx@0.1.0/dist/sam2-tiny.onnx.js";
+    let processor = null;
+    let model = null;
+    let clickPoints = [];
+    let imageRawData = null;
 
-let samSession = null;
-let imageBitmap = null;
-let canvas = null;
-let ctx = null;
-let points = []; // [{x, y, label: 'positive' | 'negative'}]
+    // 1. Initialize SAM 2 Model directly from HuggingFace CDN using WebGPU
+    async function initSAM2() {
+        try {
+            // Check if user's browser supports WebGPU acceleration natively
+            const hasWebGPU = navigator.gpu ? 'webgpu' : 'wasm';
+            status.innerText = `Loading Meta SAM 2 (Using ${hasWebGPU.toUpperCase()} engine)...`;
 
-async function initSAM() {
-    status("⏳ Loading SAM 2 model...");
-    try {
-        // Dynamically import SAM 2 ONNX runtime
-        const { Sam2Onnx } = await import(SAM_MODEL_URL);
-        samSession = new Sam2Onnx();
-        await samSession.loadModel(); // Downloads ONNX weights (~100MB)
-        status("✅ SAM 2 loaded. Upload an image to start.");
-    } catch (err) {
-        console.error("SAM load failed:", err);
-        status(`❌ SAM 2 failed: ${err.message || 'Check browser console'}`);
-    }
-}
+            // Load optimized, client-side tiny Hiera weights from HuggingFace
+            processor = await window.XenovaAI.AutoProcessor.from_pretrained('Xenova/sam2-hiera-tiny');
+            model = await window.XenovaAI.AutoModel.from_pretrained('Xenova/sam2-hiera-tiny', {
+                device: hasWebGPU, // Use hardware WebGPU or fallback gracefully to CPU WASM
+                dataType: 'fp16'   // Quantized for lightning fast execution
+            });
 
-// Step 2: Handle image upload
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const canvasEl = document.getElementById('canvas');
-const statusEl = document.getElementById('status');
-const btnClear = document.getElementById('btn-clear');
-const btnGenerate = document.getElementById('btn-generate');
-const btnDownload = document.getElementById('btn-download');
-const pointsContainer = document.getElementById('points-container');
-
-canvas = canvasEl;
-ctx = canvas.getContext('2d');
-
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    status("⏳ Loading image...");
-    const img = new Image();
-    img.onload = async () => {
-        // Resize to fit canvas (max 1024px for speed)
-        const MAX_SIZE = 1024;
-        const scale = Math.min(1, MAX_SIZE / Math.max(img.width, img.height));
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        imageBitmap = await createImageBitmap(img, 0, 0, img.width, img.height);
-        points = [];
-        pointsContainer.innerHTML = '';
-        status("✅ Image loaded. Click on the object you want to keep (e.g., text 'Chloe').");
-        btnDownload.disabled = true;
-    };
-    img.onerror = () => status("❌ Failed to load image");
-    img.src = URL.createObjectURL(file);
-});
-
-// Step 3: Canvas click handler (interactive segmentation)
-canvas.addEventListener('click', (e) => {
-    if (!imageBitmap) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-    
-    const isNegative = e.altKey || e.ctrlKey;
-    const label = isNegative ? 'negative' : 'positive';
-    
-    points.push({ x, y, label });
-    drawPoint(x, y, label);
-    
-    status(`📍 Added ${label} point at (${Math.round(x)}, ${Math.round(y)}). Press Enter to generate.`);
-});
-
-function drawPoint(x, y, label) {
-    const pointEl = document.createElement('div');
-    pointEl.className = `point ${label}`;
-    pointEl.style.left = `${x}px`;
-    pointEl.style.top = `${y}px`;
-    pointsContainer.appendChild(pointEl);
-}
-
-// Step 4: Generate mask on Enter or button click
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && points.length > 0) {
-        generateMask();
-    }
-});
-btnGenerate.addEventListener('click', generateMask);
-
-async function generateMask() {
-    if (!samSession || !imageBitmap || points.length === 0) {
-        status("⚠️ Load image and add at least one point first.");
-        return;
-    }
-
-    status("🧠 Generating mask with SAM 2...");
-    try {
-        // Prepare input: normalize points to [0,1] and scale to original image size
-        const origWidth = imageBitmap.width;
-        const origHeight = imageBitmap.height;
-        
-        const normalizedPoints = points.map(p => ({
-            x: p.x / canvas.width,
-            y: p.y / canvas.height,
-            label: p.label === 'positive' ? 1 : 0
-        }));
-
-        // Run SAM 2 inference
-        const mask = await samSession.segment(
-            imageBitmap,
-            normalizedPoints,
-            { box: null } // no box, just points
-        );
-
-        // Draw mask overlay (white = foreground, black = background)
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.globalAlpha = 1;
-
-        // Create final cutout (transparent background)
-        const cutoutCanvas = document.createElement('canvas');
-        cutoutCanvas.width = canvas.width;
-        cutoutCanvas.height = canvas.height;
-        const cutoutCtx = cutoutCanvas.getContext('2d');
-        cutoutCtx.drawImage(canvas, 0, 0);
-
-        // Apply mask as alpha channel
-        const imageData = cutoutCtx.getImageData(0, 0, canvas.width, canvas.height);
-        for (let i = 0; i < imageData.data.length; i += 4) {
-            const maskIdx = Math.floor(i / 4);
-            const maskVal = mask[maskIdx] ? 255 : 0;
-            imageData.data[i + 3] = maskVal; // Alpha channel
+            status.innerText = "🚀 SAM 2 Ready! Upload an image file to begin.";
+        } catch (err) {
+            status.innerText = "❌ Initialization Error. Ensure your browser supports WebGPU.";
+            console.error(err);
         }
-        cutoutCtx.putImageData(imageData, 0, 0);
-
-        // Show result
-        canvas.style.filter = 'brightness(0.8) contrast(1.2)';
-        btnDownload.disabled = false;
-        btnDownload.onclick = () => {
-            const url = cutoutCanvas.toDataURL('image/png');
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'sam2-cutout.png';
-            a.click();
-            status("✅ Cutout downloaded!");
-        };
-        status(`✅ Mask generated! ${points.length} point${points.length !== 1 ? 's' : ''}. Click "Download Cutout".`);
-    } catch (err) {
-        console.error("SAM inference error:", err);
-        status(`❌ SAM error: ${err.message || 'Unknown'}`);
     }
-}
+    // Wait for the scripts to mount globally, then initialize
+    setTimeout(initSAM2, 1000);
 
-// Step 5: Clear points
-btnClear.addEventListener('click', () => {
-    points = [];
-    pointsContainer.innerHTML = '';
-    canvas.style.filter = 'none';
-    btnDownload.disabled = true;
-    status("✓ Points cleared. Click on the image to add new points.");
-});
+    // 2. Handle Client Upload File Matrix Mapping
+    imageUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-// Helper: Status updater
-function status(msg) {
-    statusEl.textContent = msg;
-    console.log("[SAM]", msg);
-}
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            sourceImage.src = event.target.result;
+            sourceImage.onload = () => {
+                workspace.style.display = 'inline-block';
+                interactiveCanvas.width = sourceImage.clientWidth;
+                interactiveCanvas.height = sourceImage.clientHeight;
+                
+                clickPoints = [];
+                interCtx.clearRect(0, 0, interactiveCanvas.width, interactiveCanvas.height);
+                processBtn.disabled = false;
+                status.innerText = "🎯 Click on the foreground object AND your background text ('Chloe').";
+            };
+        };
+        reader.readAsDataURL(file);
+    });
 
-// Initialize
-initSAM();
+    // 3. Collect Relative Click Coordinates
+    interactiveCanvas.addEventListener('click', (e) => {
+        const rect = interactiveCanvas.getBoundingClientRect();
+        // Convert to absolute pixel coordinates on the displayed image frame dimensions
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Save normalized coordinates required by SAM API formatting
+        clickPoints.push({
+            point: [ (x / interactiveCanvas.width) * sourceImage.naturalWidth, (y / interactiveCanvas.height) * sourceImage.naturalHeight ],
+            label: 1 // 1 means foreground/keep, 0 means background/remove
+        });
+
+        // Draw a green tracking node dot overlay indicator
+        interCtx.fillStyle = '#00ffcc';
+        interCtx.beginPath();
+        interCtx.arc(x, y, 6, 0, 2 * Math.PI);
+        interCtx.fill();
+    });
+
+    clearBtn.addEventListener('click', () => {
+        clickPoints = [];
+        interCtx.clearRect(0, 0, interactiveCanvas.width, interactiveCanvas.height);
+        status.innerText = "Cleared. Re-click target zones.";
+    });
+
+    // 4. Run Serverless Local SAM 2 Segmentation Pipeline
+    processBtn.addEventListener('click', async () => {
+        if (clickPoints.length === 0) {
+            alert("Click on at least one area to keep first!");
+            return;
+        }
+
+        status.innerText = "⚡ Running SAM 2 on your graphics card...";
+
+        // Extract raw image data properties
+        const inputs = await processor(sourceImage);
+        
+        // Structure raw array points into model-ready execution tensors
+        const inputPoints = clickPoints.map(p => p.point);
+        const inputLabels = clickPoints.map(p => p.label);
+
+        // Run local model inference pipeline block
+        const outputs = await model({
+            ...inputs,
+            input_points: [inputPoints],
+            input_labels: [inputLabels]
+        });
+
+        // 5. Render Generated Transparent Mask on Base Canvas Element
+        const trueWidth = sourceImage.naturalWidth;
+        const trueHeight = sourceImage.naturalHeight;
+        resultCanvas.width = trueWidth;
+        resultCanvas.height = trueHeight;
+
+        // Draw the base source file textures down
+        resCtx.drawImage(sourceImage, 0, 0, trueWidth, trueHeight);
+        const frameImgData = resCtx.getImageData(0, 0, trueWidth, trueHeight);
+
+        // Read SAM 2 mask array prediction response dimensions (0 = background, 1 = item)
+        const samMaskData = outputs.pred_masks.data; 
+
+        // Loop over individual frame byte maps to drop unwanted background elements
+        for (let i = 0; i < samMaskData.length; i++) {
+            const pixelAlphaByteIndex = (i * 4) + 3;
+            // If SAM 2 returns false/0, erase the pixel by making transparency 0
+            if (samMaskData[i] === 0) {
+                frameImgData.data[pixelAlphaByteIndex] = 0;
+            }
+        }
+
+        // Render clean structural cutout to UI output canvas frame 
+        resCtx.putImageData(frameImgData, 0, 0);
+        status.innerText = "🎉 Cutout compiled successfully using WebGPU!";
+    });
 </script>
 </body>
 </html>
